@@ -168,7 +168,7 @@ nassh.agent.backends.GSC.prototype.requestReaderIdentities_ =
     await manager.connect(reader);
     // TODO: Loop over applets.
     await manager.selectApplet(
-        nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP);
+        nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV);
     // Exclude blocked readers.
     if (await manager.fetchPINVerificationTriesRemaining() === 0) {
       console.error(`GSC.requestIdentities: skipping blocked reader ${reader}`);
@@ -327,7 +327,7 @@ nassh.agent.backends.GSC.prototype.signRequest =
     await manager.connect(reader);
     // TODO: Support PIV applet.
     await manager.selectApplet(
-        nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP);
+        nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV);
 
     await this.unlockKey_(manager, readerKeyId);
 
@@ -663,6 +663,8 @@ nassh.agent.backends.GSC.DataObject.fromBytesInRange = function(
   const valueEnd = pos + valueLength;
   const value = bytes.slice(valueStart, valueEnd);
 
+  dataObject.value = value;
+
   if (isConstructed) {
     dataObject.children = [];
     let child;
@@ -673,9 +675,8 @@ nassh.agent.backends.GSC.DataObject.fromBytesInRange = function(
         dataObject.children.push(child);
       }
     } while (child);
-  } else {
-    dataObject.value = value;
   }
+
   return [dataObject, valueEnd];
 };
 
@@ -901,6 +902,135 @@ nassh.agent.backends.GSC.SmartCardManager.StatusValues = {
 };
 
 /**
+<<<<<<< HEAD
+=======
+ * Command APDU for the 'GET RESPONSE' command.
+ *
+ * Used to retrieve the continuation of a long response.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.GET_RESPONSE_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xC0, 0x00, 0x00);
+
+/**
+ * Command APDU for the 'SELECT APPLET' command with the OpenPGP Application
+ * Identifier (AID) as data.
+ *
+ * Used to select the OpenPGP applet on a smart card.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_OPENPGP_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(
+        0x00, 0xA4, 0x04, 0x00,
+        new Uint8Array([0xD2, 0x76, 0x00, 0x01, 0x24, 0x01]));
+
+/**
+ * Command APDU for the 'SELECT APPLET' command with the PIV Application
+ * Identifier (AID) as data.
+ *
+ * Used to select the PIV applet on a smart card.
+ * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_PIV_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(
+        0x00, 0xA4, 0x04, 0x00,
+        new Uint8Array([0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00]));
+
+/**
+ * Command APDU for the 'GET DATA' command with the identifier of the
+ * 'Application Related Data' data object as data.
+ *
+ * Used to retrieve the 'Application Related Data'.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.FETCH_APPLICATION_RELATED_DATA_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
+
+/**
+ * Command APDU for the 'GET DATA' command with the identifier of the
+ * 'Historical Bytes' data object as data.
+ *
+ * Used to retrieve the 'Historical Bytes", which contain information on the
+ * communication capabilities of the card.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.FETCH_HISTORICAL_BYTES_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x5F, 0x52);
+
+/**
+ * Command APDU for the 'GENERATE ASYMMETRIC KEY PAIR' command in 'reading' mode
+ * with the identifier of the authentication subkey as data.
+ *
+ * Used to retrieve information on the public part of the authentication subkey.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!nassh.agent.backends.GSC.CommandAPDU}
+ */
+nassh.agent.backends.GSC.SmartCardManager.READ_AUTHENTICATION_PUBLIC_KEY_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(
+        0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
+
+
+// TODO: JSDoc
+nassh.agent.backends.GSC.SmartCardManager.READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
+    new nassh.agent.backends.GSC.CommandAPDU(
+        0x00, 0xCB, 0x3F, 0xFF, new Uint8Array([0x5C, 0x03, 0x5F, 0xC1, 0x05]));
+
+/**
+ * Header bytes of the command APDU for the 'VERIFY PIN' command (OpenPGP).
+ *
+ * Used to unlock private key operations on the smart card.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!Array<!number>}
+ */
+nassh.agent.backends.GSC.SmartCardManager.VERIFY_PIN_OPENPGP_APDU_HEADER =
+    [0x00, 0x20, 0x00, 0x82];
+
+/**
+ * Header bytes of the command APDU for the 'VERIFY PIN' command (PIV).
+ *
+ * Used to unlock private key operations on the smart card.
+ * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+ *
+ * @readonly
+ * @const {!Array<!number>}
+ */
+nassh.agent.backends.GSC.SmartCardManager.VERIFY_PIN_PIV_APDU_HEADER =
+    [0x00, 0x20, 0x00, 0x80];
+
+/**
+ * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE' command.
+ *
+ * Used to perform a signature operation using the authentication subkey on the
+ * smart card.
+ * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+ *
+ * @readonly
+ * @const {!Array<!number>}
+ */
+nassh.agent.backends.GSC.SmartCardManager.INTERNAL_AUTHENTICATE_APDU_HEADER =
+    [0x00, 0x88, 0x00, 0x00];
+
+/**
+>>>>>>> Begin work on PIV support
  * Get the name of the reader the manager is connected to.
  *
  * @returns {?string}
@@ -1051,6 +1181,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.connect =
  */
 nassh.agent.backends.GSC.SmartCardManager.prototype.transmit =
     async function(commandAPDU) {
+  console.log(commandAPDU);
   if (!this.connected_) {
     throw new Error('SmartCardManager.transmit: not connected');
   }
@@ -1063,6 +1194,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.transmit =
             Array.from(command)));
     data = await this.getData_(result);
   }
+  console.log(data);
   return data;
 };
 
@@ -1098,8 +1230,14 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.getData_ =
       nassh.agent.backends.GSC.SmartCardManager.StatusValues
           .COMMAND_CORRECT_MORE_DATA_1) {
     // transmit recursively calls getData_ to assemble the complete response.
+    // TODO: Use SW2 as Le field
     const dataContinued = await this.transmit(GET_RESPONSE_APDU);
     data = lib.array.concatTyped(data, dataContinued);
+  } else if (this.appletSelected_ ===
+      nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV &&
+      (statusBytes.value() & 0xFFF0) === 0x63C0) {
+    // TODO: Adjust JSDoc
+    return statusBytes.value() & 0xF;
   } else if (
       statusBytes.value() !==
       nassh.agent.backends.GSC.SmartCardManager.StatusValues.COMMAND_CORRECT) {
@@ -1143,6 +1281,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
               new Uint8Array([0xD2, 0x76, 0x00, 0x01, 0x24, 0x01]));
       await this.transmit(SELECT_APPLET_OPENPGP_APDU);
       await this.determineOpenPGPCardCapabilities();
+      break;
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      await this.transmit(
+          nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_PIV_APDU);
+      // Chaining support is part of the specification for the PIV applet.
+      this.supportsChaining_ = true;
       break;
     default:
       throw new Error(
@@ -1188,6 +1332,18 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           nassh.agent.messages.KeyBlobTypes.SSH_RSA,
           exponent,
           modulus);
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      const certificateObject =
+          nassh.agent.backends.GSC.DataObject.fromBytes(
+              await this.transmit(
+                  nassh.agent.backends.GSC.SmartCardManager
+                      .READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
+      const certificateBytes =
+          nassh.agent.backends.GSC.DataObject.fromBytes(
+              certificateObject.lookup(0x53)).children[0].value;
+      const certificate = asn1js.fromBER(certificateBytes);
+      console.log(certificate);
+      break;
     default:
       throw new Error(
           'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
@@ -1251,6 +1407,13 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
       return appRelatedData.lookup(0xC4)[4];
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      return await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+          ...nassh.agent.backends.GSC.SmartCardManager
+              .VERIFY_PIN_PIV_APDU_HEADER,
+          [] /* data */,
+          false /* expectResponse */));
+      break;
     default:
       throw new Error(
           'SmartCardManager.fetchPINVerificationTriesRemaining: no or ' +
