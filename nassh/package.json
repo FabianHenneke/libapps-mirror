@@ -1,0 +1,21 @@
+{
+  "name": "nassh",
+  "version": "1.0.0",
+  "description": "Secure Shell (nassh) is a Chrome App that combines [hterm](/hterm/) with a NaCl build of OpenSSH to provide a PuTTY-like app for Chrome users.",
+  "main": " ",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "asn1js": "^2.0.15",
+    "pkijs": "^2.1.5"
+  },
+  "dependencies": {
+    "rollup-plugin-node-resolve": "^3.0.0"
+  }
+}

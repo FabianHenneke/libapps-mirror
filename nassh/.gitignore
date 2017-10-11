@@ -6,3 +6,5 @@ plugin
 
 # Stuff we build for distribution
 dist
+
+node_modules

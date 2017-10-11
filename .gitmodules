@@ -1,3 +1,0 @@
-[submodule "nassh/third_party/ASN1.js"]
-	path = nassh/third_party/ASN1.js
-	url = https://github.com/PeculiarVentures/ASN1.js

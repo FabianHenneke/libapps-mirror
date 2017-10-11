@@ -10,3 +10,4 @@ cd "${BIN_DIR}/.."
 
 concat.sh -i ./concat/nassh_deps.concat \
   -o ./js/nassh_deps.concat.js "$@"
+rollup -c

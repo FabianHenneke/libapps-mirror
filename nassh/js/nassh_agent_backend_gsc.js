@@ -4,6 +4,9 @@
 
 'use strict';
 
+import * as asn1js from 'asn1js'
+import * as pkijs from 'pkijs'
+
 /**
  * @fileoverview An SSH agent backend that supports private keys stored on smart
  * cards, using the Google Smart Card Connector app.
@@ -1341,7 +1344,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const certificateBytes =
           nassh.agent.backends.GSC.DataObject.fromBytes(
               certificateObject.lookup(0x53)).children[0].value;
-      const certificate = asn1js.fromBER(certificateBytes);
+      const asn1 = asn1js.fromBER(certificateBytes.buffer);
+      const certificate = new pkijs.Certificate({ schema: asn1.result });
       console.log(certificate);
       break;
     default:
