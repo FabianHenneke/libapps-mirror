@@ -6,16 +6,14 @@
   "directories": {
     "doc": "doc"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "asn1js": "^2.0.15",
-    "pkijs": "^2.1.5"
-  },
   "dependencies": {
-    "rollup-plugin-node-resolve": "^3.0.0"
+    "asn1js": "2.0.15",
+    "pkijs": "2.1.5"
+  },
+  "devDependencies": {
+    "rollup": "0.50.0",
+    "rollup-plugin-node-resolve": "3.0.0"
   }
 }
