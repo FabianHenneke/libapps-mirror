@@ -1346,7 +1346,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               certificateObject.lookup(0x53)).children[0].value;
       const asn1 = asn1js.fromBER(certificateBytes.buffer);
       const certificate = new pkijs.Certificate({ schema: asn1.result });
-      console.log(certificate);
+      const asn1PublicKey = asn1js.fromBER(
+          certificate.subjectPublicKeyInfo.subjectPublicKey.valueBlock
+              .valueHex);
+      const rsaPublicKey = new pkijs.RSAPublicKey(
+          { schema: asn1PublicKey.result });
+      console.log(rsaPublicKey);
       break;
     default:
       throw new Error(
