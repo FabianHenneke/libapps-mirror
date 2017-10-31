@@ -1110,8 +1110,9 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.getData_ =
   } else if (this.appletSelected_ ===
       nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV &&
       (statusBytes.value() & 0xFFF0) === 0x63C0) {
-    // TODO: Adjust JSDoc
-    return statusBytes.value() & 0xF;
+    // Show no error if special status bytes are returned containing the
+    // number of remaining PIN verification tries.
+    throw statusBytes;
   } else if (
       statusBytes.value() !==
       nassh.agent.backends.GSC.SmartCardManager.StatusValues.COMMAND_CORRECT) {
@@ -1198,7 +1199,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
 nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
     async function() {
   switch (this.appletSelected_) {
-    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP: {
       /**
        * Command APDU for the 'GENERATE ASYMMETRIC KEY PAIR' command in
        * 'reading' mode with the identifier of the authentication subkey as
@@ -1219,27 +1220,35 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           nassh.agent.messages.KeyBlobTypes.SSH_RSA,
           exponent,
           modulus);
-    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+    }
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV: {
       // TODO: JSDoc
-      const READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
-        new nassh.agent.backends.GSC.CommandAPDU(
-            0x00, 0xCB, 0x3F, 0xFF, new Uint8Array(
-                [0x5C, 0x03, 0x5F, 0xC1, 0x05]));
+      const READ_AUTHENTICATION_CERTIFICATE_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(
+              0x00, 0xCB, 0x3F, 0xFF, new Uint8Array(
+                  [0x5C, 0x03, 0x5F, 0xC1, 0x05]));
       const certificateObject =
           nassh.agent.backends.GSC.DataObject.fromBytes(
-              await this.transmit(READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
+              await this.transmit(READ_AUTHENTICATION_CERTIFICATE_APDU));
+      // TODO: change behavior of lookup
       const certificateBytes =
           nassh.agent.backends.GSC.DataObject.fromBytes(
               certificateObject.lookup(0x53)).children[0].value;
       const asn1 = asn1js.fromBER(certificateBytes.buffer);
-      const certificate = new pkijs.Certificate({ schema: asn1.result });
+      const certificate = new pkijs.Certificate({schema: asn1.result});
       const asn1PublicKey = asn1js.fromBER(
           certificate.subjectPublicKeyInfo.subjectPublicKey.valueBlock
               .valueHex);
       const rsaPublicKey = new pkijs.RSAPublicKey(
-          { schema: asn1PublicKey.result });
-      console.log(rsaPublicKey);
-      break;
+          {schema: asn1PublicKey.result});
+      const exponent = new Uint8Array(
+          rsaPublicKey.publicExponent.valueBlock.valueHex);
+      const modulus = new Uint8Array(rsaPublicKey.modulus.valueBlock.valueHex);
+      return nassh.agent.messages.generateKeyBlob(
+          nassh.agent.messages.KeyBlobTypes.SSH_RSA,
+          exponent,
+          modulus);
+    }
     default:
       throw new Error(
           'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
@@ -1272,6 +1281,23 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
       return appRelatedData.lookup(0xC5).subarray(40, 60);
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      // TODO: JSDoc
+      const READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(
+              0x00, 0xCB, 0x3F, 0xFF, new Uint8Array(
+                  [0x5C, 0x03, 0x5F, 0xC1, 0x05]));
+      const certificateObject =
+          nassh.agent.backends.GSC.DataObject.fromBytes(
+              await this.transmit(READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
+      // TODO: change behavior of lookup
+      const certificateBytes =
+          nassh.agent.backends.GSC.DataObject.fromBytes(
+              certificateObject.lookup(0x53)).children[0].value;
+      return new Uint8Array(
+          await window.crypto.subtle.digest(
+              nassh.agent.backends.GSC.HashAlgorithms.SHA1.name,
+              certificateBytes.buffer));
     default:
       throw new Error(
           'SmartCardManager.fetchAuthenticationPublicKeyId: no or ' +
@@ -1311,10 +1337,23 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
        * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
       const VERIFY_PIN_PIV_APDU_HEADER = [0x00, 0x20, 0x00, 0x80];
-      return await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-          ...VERIFY_PIN_PIV_APDU_HEADER,
-          [] /* data */,
-          false /* expectResponse */));
+      // The PIV applet returns the number of remaining tries encoded into the
+      // status bytes, hence we expect the following command to throw.
+      try {
+        await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+            ...VERIFY_PIN_PIV_APDU_HEADER,
+            [] /* data */,
+            false /* expectResponse */));
+      } catch (statusBytes) {
+         if ((statusBytes.value() & 0xFFF0) === 0x63C0) {
+           return statusBytes.value() & 0xF;
+         } else {
+           throw new Error(
+               `SmartCardManager.fetchPINVerificationTriesRemaining: expected` +
+               `status bytes of the form 0x63 0xCX, but got` +
+               `${statusBytes.toString()}`);
+         }
+      }
       break;
     default:
       throw new Error(
@@ -1381,7 +1420,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
  */
 nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
     async function(pin) {
-  const pinBytes = new TextEncoder('utf-8').encode(pin);
   switch (this.appletSelected_) {
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
       /**
@@ -1390,10 +1428,11 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
        * Used to unlock private key operations on the smart card.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
        */
-      const VERIFY_PIN_APDU_HEADER = [0x00, 0x20, 0x00, 0x82];
+      const VERIFY_PIN_APDU_HEADER_OPENPGP = [0x00, 0x20, 0x00, 0x82];
+      const pinBytes = new TextEncoder('utf-8').encode(pin);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-            ...VERIFY_PIN_APDU_HEADER,
+            ...VERIFY_PIN_APDU_HEADER_OPENPGP,
             pinBytes,
             false /* expectResponse */));
         return true;
@@ -1412,6 +1451,44 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
               throw new Error('SmartCardManager.verifyPIN: device is blocked');
             default:
               throw new Error(
+                  `SmartCardManager.verifyPIN: failed (${error.toString()})`);
+          }
+        } else {
+          throw error;
+        }
+      }
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      /**
+       * Header bytes of the command APDU for the 'VERIFY PIN' command (PIV).
+       *
+       * Used to unlock private key operations on the smart card.
+       * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+       */
+      const VERIFY_PIN_APDU_HEADER_PIV = [0x00, 0x20, 0x00, 0x80];
+      // PIV Application PIN can only be numeric and between 6 and 8 digits
+      // long (see PIV specification Section 2.4.3).
+      if (!pin.match(/\d{6,8}/)) return false;
+      // Pad to 8 bytes by appending (at most two) 0xFF bytes.
+      const paddedPinBytes =
+          lib.array.concatTyped(
+              new TextEncoder('ascii').encode(pin),
+              new Uint8Array([0xFF, 0xFF])).slice(0, 8);
+      try {
+        await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+            ...VERIFY_PIN_APDU_HEADER_PIV,
+            paddedPinBytes,
+            false /* expectResponse */));
+        return true;
+      } catch (error) {
+        if (error instanceof nassh.agent.backends.GSC.StatusBytes) {
+          if ((error.value() & 0x6300) === 0x6300) {
+            return false;
+          } else if (error.value() ===
+                nassh.agent.backends.GSC.SmartCardManager.StatusValues
+                    .COMMAND_BLOCKED_PIN) {
+            throw new Error('SmartCardManager.verifyPIN: device is blocked');
+          } else {
+            throw new Error(
                 `SmartCardManager.verifyPIN: failed (${error.toString()})`);
           }
         } else {
@@ -1439,8 +1516,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
   switch (this.appletSelected_) {
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
       /**
-       * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE'
-       * command.
+       * Header bytes of the command APDU for the 'INTERNAL AUTHENTICATE'
+       * command (OpenPGP).
        *
        * Used to perform a signature operation using the authentication subkey
        * on the smart card.
@@ -1450,6 +1527,29 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
       return this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
           ...INTERNAL_AUTHENTICATE_APDU_HEADER,
           data));
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      /**
+       * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE'
+       * command (PIV).
+       *
+       * Used to perform a signature operation using the authentication subkey
+       * on the smart card.
+       * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+       */
+      const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
+      // Create Dynamic Authentication Template (see Section 3.2.4 & Table 7)
+      const authTemplate = lib.array.concatTyped(
+        new Uint8Array([0x7C, 0x82]),
+        lib.array.uint32ToArrayBigEndian(data.length + 6).slice(-2),
+        new Uint8Array([0x82, 0x00]),
+        new Uint8Array([0x81, 0x82]),
+        lib.array.uint32ToArrayBigEndian(data.length).slice(-2),
+        data
+      );
+      // TODO: ECC
+      return this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+          ...GENERAL_AUTHENTICATE_APDU_HEADER,
+          authTemplate));
     default:
       throw new Error(
           'SmartCardManager.authenticate: no or unsupported applet selected');
