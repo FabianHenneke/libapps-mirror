@@ -905,135 +905,6 @@ nassh.agent.backends.GSC.SmartCardManager.StatusValues = {
 };
 
 /**
-<<<<<<< HEAD
-=======
- * Command APDU for the 'GET RESPONSE' command.
- *
- * Used to retrieve the continuation of a long response.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.GET_RESPONSE_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xC0, 0x00, 0x00);
-
-/**
- * Command APDU for the 'SELECT APPLET' command with the OpenPGP Application
- * Identifier (AID) as data.
- *
- * Used to select the OpenPGP applet on a smart card.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_OPENPGP_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(
-        0x00, 0xA4, 0x04, 0x00,
-        new Uint8Array([0xD2, 0x76, 0x00, 0x01, 0x24, 0x01]));
-
-/**
- * Command APDU for the 'SELECT APPLET' command with the PIV Application
- * Identifier (AID) as data.
- *
- * Used to select the PIV applet on a smart card.
- * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_PIV_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(
-        0x00, 0xA4, 0x04, 0x00,
-        new Uint8Array([0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00]));
-
-/**
- * Command APDU for the 'GET DATA' command with the identifier of the
- * 'Application Related Data' data object as data.
- *
- * Used to retrieve the 'Application Related Data'.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.FETCH_APPLICATION_RELATED_DATA_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
-
-/**
- * Command APDU for the 'GET DATA' command with the identifier of the
- * 'Historical Bytes' data object as data.
- *
- * Used to retrieve the 'Historical Bytes", which contain information on the
- * communication capabilities of the card.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.FETCH_HISTORICAL_BYTES_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x5F, 0x52);
-
-/**
- * Command APDU for the 'GENERATE ASYMMETRIC KEY PAIR' command in 'reading' mode
- * with the identifier of the authentication subkey as data.
- *
- * Used to retrieve information on the public part of the authentication subkey.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!nassh.agent.backends.GSC.CommandAPDU}
- */
-nassh.agent.backends.GSC.SmartCardManager.READ_AUTHENTICATION_PUBLIC_KEY_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(
-        0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
-
-
-// TODO: JSDoc
-nassh.agent.backends.GSC.SmartCardManager.READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
-    new nassh.agent.backends.GSC.CommandAPDU(
-        0x00, 0xCB, 0x3F, 0xFF, new Uint8Array([0x5C, 0x03, 0x5F, 0xC1, 0x05]));
-
-/**
- * Header bytes of the command APDU for the 'VERIFY PIN' command (OpenPGP).
- *
- * Used to unlock private key operations on the smart card.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!Array<!number>}
- */
-nassh.agent.backends.GSC.SmartCardManager.VERIFY_PIN_OPENPGP_APDU_HEADER =
-    [0x00, 0x20, 0x00, 0x82];
-
-/**
- * Header bytes of the command APDU for the 'VERIFY PIN' command (PIV).
- *
- * Used to unlock private key operations on the smart card.
- * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
- *
- * @readonly
- * @const {!Array<!number>}
- */
-nassh.agent.backends.GSC.SmartCardManager.VERIFY_PIN_PIV_APDU_HEADER =
-    [0x00, 0x20, 0x00, 0x80];
-
-/**
- * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE' command.
- *
- * Used to perform a signature operation using the authentication subkey on the
- * smart card.
- * @see https://g10code.com/docs/openpgp-card-2.0.pdf
- *
- * @readonly
- * @const {!Array<!number>}
- */
-nassh.agent.backends.GSC.SmartCardManager.INTERNAL_AUTHENTICATE_APDU_HEADER =
-    [0x00, 0x88, 0x00, 0x00];
-
-/**
->>>>>>> Begin work on PIV support
  * Get the name of the reader the manager is connected to.
  *
  * @returns {?string}
@@ -1280,14 +1151,27 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
        */
       const SELECT_APPLET_OPENPGP_APDU =
           new nassh.agent.backends.GSC.CommandAPDU(
-              0x00, 0xA4, 0x04, 0x00,
-              new Uint8Array([0xD2, 0x76, 0x00, 0x01, 0x24, 0x01]));
+              0x00, 0xA4, 0x04, 0x00, new Uint8Array(
+                  [0xD2, 0x76, 0x00, 0x01, 0x24, 0x01]));
       await this.transmit(SELECT_APPLET_OPENPGP_APDU);
       await this.determineOpenPGPCardCapabilities();
       break;
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
-      await this.transmit(
-          nassh.agent.backends.GSC.SmartCardManager.SELECT_APPLET_PIV_APDU);
+      /**
+       * Command APDU for the 'SELECT APPLET' command with the PIV Application
+       * Identifier (AID) as data.
+       *
+       * Used to select the PIV applet on a smart card.
+       * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+       *
+       * @readonly
+       * @const {!nassh.agent.backends.GSC.CommandAPDU}
+       */
+      const SELECT_APPLET_PIV_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(
+              0x00, 0xA4, 0x04, 0x00, new Uint8Array(
+                  [0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00]));
+      await this.transmit(SELECT_APPLET_PIV_APDU);
       // Chaining support is part of the specification for the PIV applet.
       this.supportsChaining_ = true;
       break;
@@ -1336,11 +1220,14 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           exponent,
           modulus);
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      // TODO: JSDoc
+      const READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
+        new nassh.agent.backends.GSC.CommandAPDU(
+            0x00, 0xCB, 0x3F, 0xFF, new Uint8Array(
+                [0x5C, 0x03, 0x5F, 0xC1, 0x05]));
       const certificateObject =
           nassh.agent.backends.GSC.DataObject.fromBytes(
-              await this.transmit(
-                  nassh.agent.backends.GSC.SmartCardManager
-                      .READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
+              await this.transmit(READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
       const certificateBytes =
           nassh.agent.backends.GSC.DataObject.fromBytes(
               certificateObject.lookup(0x53)).children[0].value;
@@ -1417,9 +1304,15 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
       return appRelatedData.lookup(0xC4)[4];
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      /**
+       * Header bytes of the command APDU for the 'VERIFY PIN' command (PIV).
+       *
+       * Used to unlock private key operations on the smart card.
+       * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+       */
+      const VERIFY_PIN_PIV_APDU_HEADER = [0x00, 0x20, 0x00, 0x80];
       return await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-          ...nassh.agent.backends.GSC.SmartCardManager
-              .VERIFY_PIN_PIV_APDU_HEADER,
+          ...VERIFY_PIN_PIV_APDU_HEADER,
           [] /* data */,
           false /* expectResponse */));
       break;
