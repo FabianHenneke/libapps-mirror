@@ -178,3 +178,63 @@ nassh.agent.messages
   message.writeString(signature);
   return message;
 };
+
+nassh.agent.messages.KeyBlobTypes = {
+  SSH_RSA: 1
+};
+
+nassh.agent.messages.keyBlobGenerators_ = {};
+
+nassh.agent.messages.generateKeyBlob = function(keyBlobType, ...args) {
+  if (nassh.agent.messages.keyBlobGenerators_.hasOwnProperty(keyBlobType)) {
+    return nassh.agent.messages.keyBlobGenerators_[keyBlobType](...args);
+  } else {
+    throw new Error(
+        `messages.generateKeyBlob: key blob type ${keyBlobType} not supported`);
+  }
+};
+
+/**
+ * Encode an unsigned integer as an mpint.
+ * @see https://tools.ietf.org/html/rfc4251#section-5
+ *
+ * @param {!Uint8Array} bytes Raw bytes of an unsigned integer.
+ * @returns {!Uint8Array} Wire encoding of an mpint
+ */
+nassh.agent.messages.encodeUnsignedMpint =  function(bytes) {
+  let mpint = new Uint8Array(bytes);
+  let pos = 0;
+
+  // Strip leading zeros.
+  while (pos < mpint.length && !mpint[pos]) {
+    ++pos;
+  }
+  mpint = mpint.slice(pos);
+
+  // Add a leading zero if the positive result would otherwise be treated as a
+  // signed mpint.
+  if (mpint.length && (mpint[0] & (1 << 7))) {
+    mpint = lib.array.concatTyped(new Uint8Array([0]), mpint);
+  }
+  return mpint;
+};
+
+nassh.agent.messages
+    .keyBlobGenerators_[nassh.agent.messages.KeyBlobTypes.SSH_RSA] = function(
+        exponent, modulus) {
+  const exponentMpint =
+      nassh.agent.backends.messages.encodeUnsignedMpint(exponent);
+  const modulusMpint =
+      nassh.agent.backends.messages.encodeUnsignedMpint(modulus);
+  // Byte representation of the string 'ssh-rsa'.
+  const BYTES_SSH_RSA =
+      new Uint8Array([0x73, 0x73, 0x68, 0x2d, 0x72, 0x73, 0x61]);
+  return lib.array.concatTyped(
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(7)),
+      BYTES_SSH_RSA,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(exponentMpint.length)),
+      exponentMpint,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(modulusMpint.length)),
+      modulusMpint,
+  );
+};

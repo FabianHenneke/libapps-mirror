@@ -129,15 +129,6 @@ nassh.agent.backends.GSC.HashAlgorithms = {
 // clang-format on
 
 /**
- * Byte representation of the string 'ssh-rsa'.
- *
- * @readonly
- * @const {!Uint8Array}
- */
-nassh.agent.backends.GSC.BYTES_SSH_RSA =
-    new Uint8Array([0x73, 0x73, 0x68, 0x2d, 0x72, 0x73, 0x61]);
-
-/**
  * Initialize the Google Smart Card Connector library context on first use.
  *
  * @returns {!Promise<void>|!Promise<Error>} A resolving Promise if the
@@ -1165,32 +1156,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
 };
 
 /**
- * Encode an unsigned integer as an mpint.
- * @see https://tools.ietf.org/html/rfc4251#section-5
- *
- * @param {!Uint8Array} bytes Raw bytes of an unsigned integer.
- * @returns {!Uint8Array} Wire encoding of an mpint
- */
-nassh.agent.backends.GSC.SmartCardManager.encodeUnsignedMpint =
-    function(bytes) {
-  let mpint = new Uint8Array(bytes);
-  let pos = 0;
-
-  // Strip leading zeros.
-  while (pos < mpint.length && !mpint[pos]) {
-    ++pos;
-  }
-  mpint = mpint.slice(pos);
-
-  // Add a leading zero if the positive result would otherwise be treated as a
-  // signed mpint.
-  if (mpint.length && (mpint[0] & (1 << 7))) {
-    mpint = lib.array.concatTyped(new Uint8Array([0]), mpint);
-  }
-  return mpint;
-};
-
-/**
  * Fetch the public key blob of the authentication subkey on the smart card.
  *
  * For OpenPGP, see RFC 4253, Section 6.6 and RFC 4251, Section 5.
@@ -1218,21 +1183,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const publicKeyTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(nassh.agent.backends.GSC.SmartCardManager
                                   .READ_AUTHENTICATION_PUBLIC_KEY_APDU));
-      let modulus =
-          nassh.agent.backends.GSC.SmartCardManager.encodeUnsignedMpint(
-              publicKeyTemplate.lookup(0x81));
-      const exponent =
-          nassh.agent.backends.GSC.SmartCardManager.encodeUnsignedMpint(
-              publicKeyTemplate.lookup(0x82));
-      return lib.array.concatTyped(
-          new Uint8Array(lib.array.uint32ToArrayBigEndian(7)),
-          // 'ssh-rsa'
-          nassh.agent.backends.GSC.BYTES_SSH_RSA,
-          new Uint8Array(lib.array.uint32ToArrayBigEndian(exponent.length)),
+      const exponent = publicKeyTemplate.lookup(0x82);
+      const modulus = publicKeyTemplate.lookup(0x81);
+      return nassh.agent.messages.generateKeyBlob(
+          nassh.agent.messages.KeyBlobTypes.SSH_RSA,
           exponent,
-          new Uint8Array(lib.array.uint32ToArrayBigEndian(modulus.length)),
-          modulus,
-      );
+          modulus);
     default:
       throw new Error(
           'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
