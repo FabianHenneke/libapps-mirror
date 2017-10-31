@@ -1181,8 +1181,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           new nassh.agent.backends.GSC.CommandAPDU(
               0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
       const publicKeyTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
-          await this.transmit(nassh.agent.backends.GSC.SmartCardManager
-                                  .READ_AUTHENTICATION_PUBLIC_KEY_APDU));
+          await this.transmit(READ_AUTHENTICATION_PUBLIC_KEY_APDU));
       const exponent = publicKeyTemplate.lookup(0x82);
       const modulus = publicKeyTemplate.lookup(0x81);
       return nassh.agent.messages.generateKeyBlob(
