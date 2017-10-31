@@ -1096,9 +1096,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.getData_ =
    *
    * Used to retrieve the continuation of a long response.
    * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-   *
-   * @readonly
-   * @const {!nassh.agent.backends.GSC.CommandAPDU}
    */
   const GET_RESPONSE_APDU = new nassh.agent.backends.GSC.CommandAPDU(
       0x00, 0xC0, 0x00, 0x00);
@@ -1148,9 +1145,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
        *
        * Used to select the OpenPGP applet on a smart card.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-       *
-       * @readonly
-       * @const {!nassh.agent.backends.GSC.CommandAPDU}
        */
       const SELECT_APPLET_OPENPGP_APDU =
           new nassh.agent.backends.GSC.CommandAPDU(
@@ -1217,9 +1211,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
        * Used to retrieve information on the public part of the authentication
        * subkey.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-       *
-       * @readonly
-       * @const {!nassh.agent.backends.GSC.CommandAPDU}
        */
       const READ_AUTHENTICATION_PUBLIC_KEY_APDU =
           new nassh.agent.backends.GSC.CommandAPDU(
@@ -1268,9 +1259,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
        *
        * Used to retrieve the 'Application Related Data'.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-       *
-       * @readonly
-       * @const {!nassh.agent.backends.GSC.CommandAPDU}
        */
       const FETCH_APPLICATION_RELATED_DATA_APDU =
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
@@ -1296,9 +1284,17 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
     async function() {
   switch (this.appletSelected_) {
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
+      /**
+       * Command APDU for the 'GET DATA' command with the identifier of the
+       * 'Application Related Data' data object as data.
+       *
+       * Used to retrieve the 'Application Related Data'.
+       * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+       */
+      const FETCH_APPLICATION_RELATED_DATA_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
-          await this.transmit(nassh.agent.backends.GSC.SmartCardManager
-                                  .FETCH_APPLICATION_RELATED_DATA_APDU));
+          await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
       return appRelatedData.lookup(0xC4)[4];
     default:
       throw new Error(
@@ -1323,9 +1319,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
    * Used to retrieve the 'Historical Bytes", which contain information on the
    * communication capabilities of the card.
    * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-   *
-   * @readonly
-   * @const {!nassh.agent.backends.GSC.CommandAPDU}
    */
   const FETCH_HISTORICAL_BYTES_APDU =
       new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x5F, 0x52);
@@ -1376,9 +1369,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
        *
        * Used to unlock private key operations on the smart card.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-       *
-       * @readonly
-       * @const {!Array<!number>}
        */
       const VERIFY_PIN_APDU_HEADER = [0x00, 0x20, 0x00, 0x82];
       try {
@@ -1435,9 +1425,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * Used to perform a signature operation using the authentication subkey
        * on the smart card.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-       *
-       * @readonly
-       * @const {!Array<!number>}
        */
       const INTERNAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x88, 0x00, 0x00];
       return this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
