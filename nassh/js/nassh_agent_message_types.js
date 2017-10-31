@@ -223,9 +223,9 @@ nassh.agent.messages
     .keyBlobGenerators_[nassh.agent.messages.KeyBlobTypes.SSH_RSA] = function(
         exponent, modulus) {
   const exponentMpint =
-      nassh.agent.backends.messages.encodeUnsignedMpint(exponent);
+      nassh.agent.messages.encodeUnsignedMpint(exponent);
   const modulusMpint =
-      nassh.agent.backends.messages.encodeUnsignedMpint(modulus);
+      nassh.agent.messages.encodeUnsignedMpint(modulus);
   // Byte representation of the string 'ssh-rsa'.
   const BYTES_SSH_RSA =
       new Uint8Array([0x73, 0x73, 0x68, 0x2d, 0x72, 0x73, 0x61]);
