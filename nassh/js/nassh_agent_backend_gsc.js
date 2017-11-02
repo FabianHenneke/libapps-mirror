@@ -1055,7 +1055,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.connect =
  */
 nassh.agent.backends.GSC.SmartCardManager.prototype.transmit =
     async function(commandAPDU) {
-  console.log(commandAPDU);
   if (!this.connected_) {
     throw new Error('SmartCardManager.transmit: not connected');
   }
@@ -1068,7 +1067,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.transmit =
             Array.from(command)));
     data = await this.getData_(result);
   }
-  console.log(data);
   return data;
 };
 
