@@ -1537,19 +1537,23 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
       const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
+      const paddedData = lib.array.concatTyped(
+          new Uint8Array([0x00, 0x01]),
+          new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
+          new Uint8Array([0x00]),
+          data
+      );
       // Create Dynamic Authentication Template (see Section 3.2.4 & Table 7)
       const authTemplate = lib.array.concatTyped(
-        new Uint8Array([0x7C, 0x82]),
-        lib.array.uint32ToArrayBigEndian(data.length + 6).slice(-2),
-        new Uint8Array([0x82, 0x00]),
-        new Uint8Array([0x81, 0x82]),
-        lib.array.uint32ToArrayBigEndian(data.length).slice(-2),
-        data
+        new Uint8Array([0x7C, 0x82, 0x01, 0x04, 0x81, 0x82, 0x01, 0x00]),
+        paddedData
       );
       // TODO: ECC
-      return this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-          ...GENERAL_AUTHENTICATE_APDU_HEADER,
-          authTemplate));
+      const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
+          await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+            ...GENERAL_AUTHENTICATE_APDU_HEADER,
+            authTemplate)));
+      return signedAuthTemplate.lookup(0x82);
     default:
       throw new Error(
           'SmartCardManager.authenticate: no or unsupported applet selected');
