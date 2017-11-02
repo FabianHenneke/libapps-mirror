@@ -1535,6 +1535,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
       const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
+      // TODO: switch over RSA/ECC
       const paddedData = lib.array.concatTyped(
           new Uint8Array([0x00, 0x01]),
           new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
