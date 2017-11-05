@@ -736,19 +736,14 @@ nassh.agent.backends.GSC.DataObject.fromBytes = function(bytes) {
 };
 
 /**
- * Return the value of a tag that is a leaf in the data object.
+ * Return a data object with a given tag (depth-first search).
  *
  * @param {!number} tag
- * @returns {?Array<?DataObject>|?Uint8Array} The value of the requested tag if
- *     present; null otherwise.
+ * @returns {?DataObject} The requested data object if present; null otherwise.
  */
 nassh.agent.backends.GSC.DataObject.prototype.lookup = function(tag) {
   if (this.tag === tag) {
-    if (this.isConstructed) {
-      return this.children;
-    } else {
-      return this.value;
-    }
+    return this;
   } else {
     if (this.isConstructed) {
       for (let child of this.children) {
@@ -1235,8 +1230,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
       const publicKeyTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(READ_AUTHENTICATION_PUBLIC_KEY_APDU));
-      const exponent = publicKeyTemplate.lookup(0x82);
-      const modulus = publicKeyTemplate.lookup(0x81);
+      const exponent = publicKeyTemplate.lookup(0x82).value;
+      const modulus = publicKeyTemplate.lookup(0x81).value;
       return nassh.agent.messages.generateKeyBlob(
           nassh.agent.messages.KeyBlobTypes.SSH_RSA,
           exponent,
@@ -1251,12 +1246,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const certificateObject =
           nassh.agent.backends.GSC.DataObject.fromBytes(
               await this.transmit(READ_AUTHENTICATION_CERTIFICATE_APDU));
-      // TODO: change behavior of lookup
       const certificateBytes =
           nassh.agent.backends.GSC.DataObject.fromBytes(
-              certificateObject.lookup(0x53)).children[0].value;
-      const asn1 = asn1js.fromBER(certificateBytes.buffer);
-      const certificate = new pkijs.Certificate({schema: asn1.result});
+              certificateObject.lookup(0x53).value).lookup(0x70).value;
+      const asn1Certificate = asn1js.fromBER(certificateBytes.buffer);
+      const certificate = new pkijs.Certificate(
+          {schema: asn1Certificate.result});
       const asn1PublicKey = asn1js.fromBER(
           certificate.subjectPublicKeyInfo.subjectPublicKey.valueBlock
               .valueHex);
@@ -1301,7 +1296,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
-      return appRelatedData.lookup(0xC5).subarray(40, 60);
+      return appRelatedData.lookup(0xC5).value.subarray(40, 60);
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
       // TODO: JSDoc
       const READ_AUTHENTICATION_CERTIFICATE_PIV_APDU =
@@ -1311,10 +1306,9 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
       const certificateObject =
           nassh.agent.backends.GSC.DataObject.fromBytes(
               await this.transmit(READ_AUTHENTICATION_CERTIFICATE_PIV_APDU));
-      // TODO: change behavior of lookup
       const certificateBytes =
           nassh.agent.backends.GSC.DataObject.fromBytes(
-              certificateObject.lookup(0x53)).children[0].value;
+              certificateObject.lookup(0x53).value).lookup(0x70).value;
       return new Uint8Array(
           await window.crypto.subtle.digest(
               nassh.agent.backends.GSC.HashAlgorithms.SHA1.name,
@@ -1349,7 +1343,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
-      return appRelatedData.lookup(0xC4)[4];
+      return appRelatedData.lookup(0xC4).value[4];
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
       /**
        * Header bytes of the command APDU for the 'VERIFY PIN' command (PIV).
@@ -1575,7 +1569,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
           await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...GENERAL_AUTHENTICATE_APDU_HEADER,
             authTemplate)));
-      return signedAuthTemplate.lookup(0x82);
+      return signedAuthTemplate.lookup(0x82).value;
     default:
       throw new Error(
           'SmartCardManager.authenticate: no or unsupported applet selected');
