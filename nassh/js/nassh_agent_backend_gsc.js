@@ -1255,6 +1255,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const asn1PublicKey = asn1js.fromBER(
           certificate.subjectPublicKeyInfo.subjectPublicKey.valueBlock
               .valueHex);
+      // TODO: Support ECC keys
       const rsaPublicKey = new pkijs.RSAPublicKey(
           {schema: asn1PublicKey.result});
       const exponent = new Uint8Array(
@@ -1545,14 +1546,15 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
       /**
        * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE'
-       * command (PIV).
+       * command (PIV), using the RSA-2048 key algorithm (0x07) with the
+       * certificate in slot 9A (0x9A).
        *
        * Used to perform a signature operation using the authentication subkey
        * on the smart card.
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
       const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
-      // TODO: switch over RSA/ECC
+      // TODO: Support ECC
       const paddedData = lib.array.concatTyped(
           new Uint8Array([0x00, 0x01]),
           new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
@@ -1561,10 +1563,10 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
       );
       // Create Dynamic Authentication Template (see Section 3.2.4 & Table 7)
       const authTemplate = lib.array.concatTyped(
-        new Uint8Array([0x7C, 0x82, 0x01, 0x04, 0x81, 0x82, 0x01, 0x00]),
+        new Uint8Array(
+            [0x7C, 0x82, 0x01, 0x06, 0x80, 0x00, 0x81, 0x82, 0x01, 0x00]),
         paddedData
       );
-      // TODO: ECC
       const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...GENERAL_AUTHENTICATE_APDU_HEADER,
