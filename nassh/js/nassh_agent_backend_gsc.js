@@ -172,7 +172,10 @@ nassh.agent.backends.GSC.prototype.requestReaderIdentities_ =
   try {
     await manager.establishContext();
     await manager.connect(reader);
-    for (const applet of nassh.agent.backends.GSC.SmartCardManager.CardApplets) {
+    for (const applet of [
+          nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP,
+          nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV
+        ]) {
       await manager.selectApplet(applet);
       // Exclude blocked readers.
       if (await manager.fetchPINVerificationTriesRemaining() === 0) {
