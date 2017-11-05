@@ -32,7 +32,8 @@ nassh.agent.backends.GSC = function(userIO) {
    * Map a string representation of an identity's key blob to the reader that
    * provides it.
    *
-   * @member {Object<!string, !string>}
+   * @member {Object<!string, !string,
+   *     !nassh.agent.backends.GSC.SmartCardManager.CardApplets>}
    * @private
    */
   this.keyBlobToReader_ = {};
@@ -156,9 +157,10 @@ nassh.agent.backends.GSC.prototype.ping = async function() {
  * readers. Blocked devices will also be skipped. The backend remembers which
  * key blobs were obtained from which reader.
  *
- * @param {!Object<!string, {reader: !string, readerKeyId: !Uint8Array}>}
- *     keyBlobToReader Maps SSH identities to the readers they have been
- *     retrieved from for later use by signRequest.
+ * @param {!Object<!string, {reader: !string, readerKeyId: !Uint8Array,
+ *     applet: !nassh.agent.backends.GSC.SmartCardManager.CardApplets}>}
+ *     keyBlobToReader Maps SSH identities to the readers and applets they have
+ *     been retrieved from for later use by signRequest.
  * @param {!string} reader The name of the reader to connect to.
  * @returns {!Promise<!Array<!Identity>>} A Promise resolving to a list of SSH
  *     identities.
@@ -166,25 +168,27 @@ nassh.agent.backends.GSC.prototype.ping = async function() {
 nassh.agent.backends.GSC.prototype.requestReaderIdentities_ =
     async function(keyBlobToReader, reader) {
   const manager = new nassh.agent.backends.GSC.SmartCardManager();
+  let identities = [];
   try {
     await manager.establishContext();
     await manager.connect(reader);
-    // TODO: Loop over applets.
-    await manager.selectApplet(
-        nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV);
-    // Exclude blocked readers.
-    if (await manager.fetchPINVerificationTriesRemaining() === 0) {
-      console.error(`GSC.requestIdentities: skipping blocked reader ${reader}`);
-      return [];
+    for (const applet of nassh.agent.backends.GSC.SmartCardManager.CardApplets) {
+      await manager.selectApplet(applet);
+      // Exclude blocked readers.
+      if (await manager.fetchPINVerificationTriesRemaining() === 0) {
+        console.error(`GSC.requestIdentities: skipping blocked reader ${reader}`);
+        return [];
+      }
+      const readerKeyBlob = await manager.fetchPublicKeyBlob();
+      const readerKeyId = await manager.fetchAuthenticationPublicKeyId();
+      const readerKeyBlobStr = new TextDecoder('utf-8').decode(readerKeyBlob);
+      keyBlobToReader[readerKeyBlobStr] = {reader, readerKeyId, applet};
+      identities.push({
+        keyBlob: readerKeyBlob,
+        comment: new Uint8Array([]),
+      });
     }
-    const readerKeyBlob = await manager.fetchPublicKeyBlob();
-    const readerKeyId = await manager.fetchAuthenticationPublicKeyId();
-    const readerKeyBlobStr = new TextDecoder('utf-8').decode(readerKeyBlob);
-    keyBlobToReader[readerKeyBlobStr] = {reader, readerKeyId};
-    return [{
-      keyBlob: readerKeyBlob,
-      comment: new Uint8Array([]),
-    }];
+    return identities;
   } catch (e) {
     console.error(e);
     console.error(
@@ -236,21 +240,25 @@ nassh.agent.backends.GSC.prototype.requestIdentities = async function() {
  * terminal.
  *
  * @param {!string} reader The name of the reader for which the user will be
- *  asked to provide the PIN.
+ *     asked to provide the PIN.
  * @param {!Uint8Array} readerKeyId The ID of the key for which the user will
- *  be asked to provide the PIN.
+ *     be asked to provide the PIN.
+ * @param{!nassh.agent.backends.GSC.SmartCardManager.CardApplets} applet The
+ *     applet on the card (OpenPGP or PIV) that provides the key.
  * @param {!number} numTries The number of PIN attempts the user has left.
  * @returns {!Promise<!string>|!Promise<void>} A promise resolving to the PIN
  *     entered by the user; a rejecting promise if the user cancelled the PIN
  *     entry.
  */
 nassh.agent.backends.GSC.prototype.requestPIN =
-    async function(reader, readerKeyId, numTries) {
+    async function(reader, readerKeyId, applet, numTries) {
   // Show 8 hex character (4 byte) fingerprint to the user.
   const shortFingerprint =
       nassh.agent.backends.GSC.arrayToHexString(readerKeyId.slice(-4));
   return this.promptUser(
-      nassh.msg('REQUEST_PIN_PROMPT', [shortFingerprint, reader, numTries]));
+      nassh.msg(
+          'REQUEST_PIN_PROMPT',
+          [shortFingerprint, reader, applet, numTries]));
 };
 
 /**
@@ -275,7 +283,8 @@ nassh.agent.backends.GSC.prototype.unlockKey_ = async function(manager, keyId) {
     }
     const numTries = await manager.fetchPINVerificationTriesRemaining();
     try {
-      pin = await this.requestPIN(manager.readerShort(), keyId, numTries);
+      pin = await this.requestPIN(
+          manager.readerShort(), keyId, manager.applet(), numTries);
     } catch (e) {
       throw new Error('GSC.signRequest: authentication canceled by user');
     }
@@ -318,7 +327,7 @@ nassh.agent.backends.GSC.prototype.signRequest =
     throw new Error(`GSC.signRequest: no reader found for key "${keyBlobStr}"`);
   }
 
-  const {reader, readerKeyId} = this.keyBlobToReader_[keyBlobStr];
+  const {reader, readerKeyId, applet} = this.keyBlobToReader_[keyBlobStr];
 
   const hash = await window.crypto.subtle.digest(hashConstants.name, data);
   const dataToSign =
@@ -328,9 +337,7 @@ nassh.agent.backends.GSC.prototype.signRequest =
   try {
     await manager.establishContext();
     await manager.connect(reader);
-    // TODO: Support PIV applet.
-    await manager.selectApplet(
-        nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV);
+    await manager.selectApplet(applet);
 
     await this.unlockKey_(manager, readerKeyId);
 
@@ -932,6 +939,22 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.readerShort = function() {
     }
   }
   return this.reader_;
+};
+
+/**
+ * Get the name of applet that is currently selected.
+ *
+ * @returns {!string}
+ */
+nassh.agent.backends.GSC.SmartCardManager.prototype.applet = function() {
+  switch (this.appletSelected_) {
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
+      return 'OpenPGP';
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      return 'PIV';
+    default:
+      return 'None';
+  }
 };
 
 /**
