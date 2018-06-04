@@ -1,5 +1,6 @@
-# Concat results
+# Bundled dependencies
 js/*.concat.js
+js/*.rollup.js
 
 # Copy of the nacl plugin used when loading as an unpacked extension
 /_platform_specific/
