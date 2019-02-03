@@ -199,7 +199,7 @@ nassh.agent.backends.GSC.prototype.requestReaderIdentities_ =
       }
       const readerKeyBlob = await manager.fetchPublicKeyBlob();
       const readerKeyId = await manager.fetchAuthenticationPublicKeyId();
-      const readerKeyBlobStr = new TextDecoder('utf-8').decode(readerKeyBlob);
+      const readerKeyBlobStr = new TextDecoder().decode(readerKeyBlob);
       keyBlobToReader[readerKeyBlobStr] = {reader, readerKeyId, applet};
       identities.push({
         keyBlob: readerKeyBlob,
@@ -1511,7 +1511,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
        */
       const VERIFY_PIN_APDU_HEADER_OPENPGP = [0x00, 0x20, 0x00, 0x82];
-      const pinBytes = new TextEncoder('utf-8').encode(pin);
+      const pinBytes = new TextEncoder().encode(pin);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...VERIFY_PIN_APDU_HEADER_OPENPGP,
