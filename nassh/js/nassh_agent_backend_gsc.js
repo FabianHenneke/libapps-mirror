@@ -1202,23 +1202,35 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.selectApplet =
  */
 nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyType =
     async function() {
-      switch (this.appletSelected_) {
-        case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
-        /**
-         * Command APDU for the 'GET DATA' command with the identifier of the
-         * 'Algorithm attributes authentication' data object as data.
-         *
-         * Used to retrieve the 'Algorithm attribute authentification' data
-         * object.
-         * @see https://g10code.com/docs/openpgp-card-2.0.pdf
-         */
-        const FETCH_ALGORITHM_ATTRIBUTES_AUTHENTICATION_APDU =
-            new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
+  switch (this.appletSelected_) {
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
+      /**
+       * Command APDU for the 'GET DATA' command with the identifier of the
+       * 'Application Related Data' data object as data.
+       *
+       * Used to retrieve the 'Application Related Data'.
+       * @see https://g10code.com/docs/openpgp-card-2.0.pdf
+       */
+      const FETCH_APPLICATION_RELATED_DATA_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
+      const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
+          await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
+      const algorithmId = appRelatedData.lookup(0xC5)[0];
+      switch (algorithmId) {
+        case 1:
+          return nassh.agent.messages.KeyTypes.SSH_RSA;
+        case 12:
+          // EC key, subsequent bytes of DO C5 determine the curve
+          const curveOid = appRelatedData.lookup(0xC5).subarray(1);
         default:
           throw new Error(
-              'SmartCardManager.fetchKeyType: no or unsupported applet ' +
-              'selected');
+              'SmartCardManager.fetchKeyType: unsupported algorithm ID: ' + algorithmId);
       }
+    default:
+      throw new Error(
+          'SmartCardManager.fetchKeyType: no or unsupported applet ' +
+          'selected');
+  }
 }
 
 /**
@@ -1248,19 +1260,17 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
       const publicKeyTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(READ_AUTHENTICATION_PUBLIC_KEY_APDU));
-      if (publicKeyTemplate.lookup(0x86)) {
-        // ECC key, supported only in OpenPGP 3.0
-        const key = publicKeyTemplate.lookup(0x86);
-        const keyType = this.fetchKeyType();
-        return nassh.agent.messages.generateKeyBlob(keyType, key);
-      } else {
-        // RSA key
-        const exponent = publicKeyTemplate.lookup(0x82);
-        const modulus = publicKeyTemplate.lookup(0x81);
-        return nassh.agent.messages.generateKeyBlob(
-            nassh.agent.messages.KeyTypes.SSH_RSA,
-            exponent,
-            modulus);
+      const keyType = await this.fetchKeyType();
+      switch (keyType) {
+        case nassh.agent.messages.KeyTypes.SSH_RSA:
+          const exponent = publicKeyTemplate.lookup(0x82);
+          const modulus = publicKeyTemplate.lookup(0x81);
+          return nassh.agent.messages.generateKeyBlob(
+              keyType, exponent, modulus);
+        default:
+          // All other key types are EC (supported with OpenPGP 3.0+)
+          const key = publicKeyTemplate.lookup(0x86);
+          return nassh.agent.messages.generateKeyBlob(keyType, key);
       }
     default:
       throw new Error(
