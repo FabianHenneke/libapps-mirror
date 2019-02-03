@@ -187,6 +187,7 @@ nassh.agent.messages
  */
 nassh.agent.messages.KeyTypes = {
   SSH_RSA: 1,
+  SSH_ED25519: 2,
 };
 
 /**
@@ -264,5 +265,27 @@ nassh.agent.messages
       exponentMpint,
       new Uint8Array(lib.array.uint32ToArrayBigEndian(modulusMpint.length)),
       modulusMpint,
+  );
+};
+
+/**
+ * Generate a key blob for a public key of type 'ssh-ed25519'.
+ * @see https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448-07
+ *
+ * @param {!Uint8Array} key The public key.
+ * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
+ */
+nassh.agent.messages
+    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.SSH_ED25519] =
+      function(key) {
+  // Byte representation of the string 'ssh-ed25519'.
+  const BYTES_SSH_ED25519 =
+      new Uint8Array(
+          [0x73, 0x73, 0x68, 0x5f, 0x65, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39]);
+  return lib.array.concatTyped(
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(11)),
+      BYTES_SSH_ED25519,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
+      key,
   );
 };
