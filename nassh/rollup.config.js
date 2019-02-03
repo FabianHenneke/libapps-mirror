@@ -7,14 +7,14 @@
 import resolve from 'rollup-plugin-node-resolve';
 
 export default {
-  input: 'js/nassh_agent_backend_gsc.js',
+  input: 'js/nassh_deps_rollup_wrapper.js',
   output: {
-    file: 'js/nassh_agent_backend_gsc.concat.js',
-    format: 'iife',
+    file: 'js/nassh_deps.rollup.js',
+    format: 'es',
   },
   plugins: [
     resolve({
-      jsnext: true
+      jsnext: true,
     })
   ],
 };

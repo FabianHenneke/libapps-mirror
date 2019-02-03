@@ -4,8 +4,7 @@
 
 'use strict';
 
-import * as asn1js from 'asn1js'
-import * as pkijs from 'pkijs'
+import { asn1js, pkijs } from './nassh_deps.rollup';
 
 /**
  * @fileoverview An SSH agent backend that supports private keys stored on smart

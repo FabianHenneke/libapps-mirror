@@ -46,7 +46,6 @@
       "js/nassh_agent.js",
       "js/nassh_agent_backend.js",
       "js/nassh_agent_backend_gsc.js",
-      "js/nassh_agent_backend_gsc.concat.js",
       "js/nassh_preference_manager.js",
       "js/nassh_stream.js",
       "js/nassh_stream_set.js",
