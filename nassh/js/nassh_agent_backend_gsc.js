@@ -1668,13 +1668,15 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
       const VERIFY_PIN_APDU_HEADER_PIV = [0x00, 0x20, 0x00, 0x80];
       // PIV Application PIN can only be numeric and between 6 and 8 digits
       // long (see PIV specification Section 2.4.3).
-      if (!pin.match(/\d{6,8}/)) return false;
+      if (!pin.match(/\d{6,8}/)) {
+        return false;
+      }
       // Pad to 8 bytes by appending (at most two) 0xFF bytes.
-      const paddedPinBytes = lib.array
-                                 .concatTyped(
-                                     new TextEncoder('ascii').encode(pin),
-                                     new Uint8Array([0xFF, 0xFF]))
-                                 .slice(0, 8);
+      const paddedPinBytes =
+          lib.array.concatTyped(
+              lib.codec.stringToCodeUnitArray(pin, Uint8Array),
+              new Uint8Array([0xFF, 0xFF]))
+          .subarray(0, 8);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...VERIFY_PIN_APDU_HEADER_PIV,
