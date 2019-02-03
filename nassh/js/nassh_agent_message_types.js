@@ -180,19 +180,19 @@ nassh.agent.messages
 };
 
 /**
- * Types of SSH identity key blobs.
+ * Types of SSH identity keys.
  *
  * @readonly
  * @enum {!number}
  */
-nassh.agent.messages.KeyBlobTypes = {
+nassh.agent.messages.KeyTypes = {
   SSH_RSA: 1,
 };
 
 /**
- * Map key blob types to generator function.
+ * Map key types to generator function.
  *
- * @type {Object<!nassh.agent.messages.KeyBlobTypes,
+ * @type {Object<!nassh.agent.messages.KeyTypes,
  *     function(...[*]): !Uint8Arrays>}
  * @private
  */
@@ -201,16 +201,16 @@ nassh.agent.messages.keyBlobGenerators_ = {};
 /**
  * Generate a key blob of a given type.
  *
- * @param {!nassh.agent.messages.KeyBlobTypes} type
+ * @param {!nassh.agent.messages.KeyTypes} type
  * @param {...*} args Any number of arguments dictated by the key blob type.
  * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
  */
-nassh.agent.messages.generateKeyBlob = function(keyBlobType, ...args) {
-  if (nassh.agent.messages.keyBlobGenerators_.hasOwnProperty(keyBlobType)) {
-    return nassh.agent.messages.keyBlobGenerators_[keyBlobType](...args);
+nassh.agent.messages.generateKeyBlob = function(keyType, ...args) {
+  if (nassh.agent.messages.keyBlobGenerators_.hasOwnProperty(keyType)) {
+    return nassh.agent.messages.keyBlobGenerators_[keyType](...args);
   } else {
     throw new Error(
-        `messages.generateKeyBlob: key blob type ${keyBlobType} not supported`);
+        `messages.generateKeyBlob: key type ${keyType} not supported`);
   }
 };
 
@@ -250,7 +250,7 @@ nassh.agent.messages.encodeUnsignedMpint = function(bytes) {
  * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
  */
 nassh.agent.messages
-    .keyBlobGenerators_[nassh.agent.messages.KeyBlobTypes.SSH_RSA] = function(
+    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.SSH_RSA] = function(
     exponent, modulus) {
   const exponentMpint = nassh.agent.messages.encodeUnsignedMpint(exponent);
   const modulusMpint = nassh.agent.messages.encodeUnsignedMpint(modulus);
