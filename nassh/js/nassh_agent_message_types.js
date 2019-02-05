@@ -191,6 +191,35 @@ nassh.agent.messages.KeyTypes = {
 };
 
 /**
+ * Decodes an ASN.1-encoded OID into human-readable dot notation.
+ *
+ * @param {!Uint8Array} asn1Bytes Individual bytes of an ASN.1-encoded OID.
+ * @returns {string} The decoded human-readable OID; null if the byte
+ *     representation is invalid.
+ * @see https://docs.microsoft.com/en-us/windows/desktop/SecCertEnroll/about-object-identifier
+ */
+nassh.agent.messages.decodeOid = function(asn1Bytes) {
+  if (asn1Bytes.length === 0) {
+    return null;
+  }
+  let oid = Math.floor(asn1Bytes[0] / 40) + '.' + (asn1Bytes[0] % 40);
+  let i = 1;
+  while (i < asn1Bytes.length) {
+    let acc = 0;
+    do {
+      acc = (acc << 7) + (asn1Bytes[i] & 0x7F);
+      i++;
+    } while ((asn1Bytes[i - 1] & 0x80) && (i < asn1Bytes.length));
+    if ((asn1Bytes[i - 1] & 0x80) && (i === asn1Bytes.length)) {
+      // The last byte in a multibyte sequence must not have the high bit set.
+      return null;
+    }
+    oid += '.' + acc;
+  }
+  return oid;
+};
+
+/**
  * Map key types to generator function.
  *
  * @type {Object<!nassh.agent.messages.KeyTypes,
