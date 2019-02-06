@@ -187,7 +187,7 @@ nassh.agent.messages
  */
 nassh.agent.messages.KeyTypes = {
   SSH_RSA: 1,
-  SSH_ED25519: 2,
+  SSH_ECC: 2,
 };
 
 /**
