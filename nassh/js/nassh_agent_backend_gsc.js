@@ -1275,17 +1275,21 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               0x00, 0x47, 0x81, 0x00, new Uint8Array([0xA4, 0x00]));
       const publicKeyTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(READ_AUTHENTICATION_PUBLIC_KEY_APDU));
-      const keyType = await this.fetchKeyInfo();
-      switch (keyType) {
+      const keyInfo = await this.fetchKeyInfo();
+      switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.SSH_RSA:
           const exponent = publicKeyTemplate.lookup(0x82);
           const modulus = publicKeyTemplate.lookup(0x81);
           return nassh.agent.messages.generateKeyBlob(
-              keyType, exponent, modulus);
-        default:
-          // All other key types are EC (supported with OpenPGP 3.0+)
+              keyInfo.type, exponent, modulus);
+        case nassh.agent.messages.KeyTypes.SSH_ECC:
           const key = publicKeyTemplate.lookup(0x86);
-          return nassh.agent.messages.generateKeyBlob(keyType, key);
+          return nassh.agent.messages.generateKeyBlob(
+              keyInfo.type, keyInfo.curveOid, key);
+        default:
+          throw new Error(
+              'SmartCardManager.fetchPublicKeyBlob: unsupported key type: ' +
+                  keyInfo);
       }
     default:
       throw new Error(
