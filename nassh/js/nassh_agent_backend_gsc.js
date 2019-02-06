@@ -91,8 +91,8 @@ nassh.agent.backends.GSC.APIContext = null;
 
 // clang-format off
 /**
- * Constants for the hash functions as used in the EMSA-PKCS1-v1_5 encoding and
- * the SSH agent protocol.
+ * Constants for the hash functions as used with an RSA key and the
+ * EMSA-PKCS1-v1_5 encoding in the SSH agent protocol.
  * @see https://tools.ietf.org/html/rfc4880#section-5.2.2
  * @see https://tools.ietf.org/html/draft-ietf-curdle-rsa-sha2-00#section-2
  *
@@ -329,30 +329,12 @@ nassh.agent.backends.GSC.prototype.unlockKey_ = async function(manager, keyId) {
  */
 nassh.agent.backends.GSC.prototype.signRequest =
     async function(keyBlob, data, flags) {
-  let hashConstants;
-  if (flags === 0) {
-    hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA1;
-  } else if (flags & 0b100) {
-    hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA512;
-  } else if (flags & 0b10) {
-    hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA256;
-  } else {
-    throw new Error(
-        `GSC.signRequest: unsupported signature flags (` +
-        `${flags.toString(2)})`);
-  }
-
   const keyBlobStr = new TextDecoder('utf-8').decode(keyBlob);
   if (!this.keyBlobToReader_.hasOwnProperty(keyBlobStr)) {
     throw new Error(`GSC.signRequest: no reader found for key "${keyBlobStr}"`);
   }
 
   const {reader, readerKeyId} = this.keyBlobToReader_[keyBlobStr];
-
-  const hash = await window.crypto.subtle.digest(hashConstants.name, data);
-  const dataToSign =
-      lib.array.concatTyped(hashConstants.identifier, new Uint8Array(hash));
-
   const manager = new nassh.agent.backends.GSC.SmartCardManager();
   try {
     await manager.establishContext();
@@ -361,15 +343,67 @@ nassh.agent.backends.GSC.prototype.signRequest =
     await manager.selectApplet(
         nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP);
 
-    await this.unlockKey_(manager, readerKeyId);
+    let dataToSign;
+    let keyInfo = await manager.fetchKeyInfo();
+    switch (keyInfo.type) {
+      case nassh.agent.messages.KeyTypes.SSH_RSA:
+        let hashConstants;
+        if (flags === 0) {
+          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA1;
+        } else if (flags & 0b100) {
+          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA512;
+        } else if (flags & 0b10) {
+          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA256;
+        } else {
+          throw new Error(
+              'GSC.signRequest: unsupported flag value for RSA: ' +
+              flags.toString(2));
+        }
+        const hash = await window.crypto.subtle.digest(
+            hashConstants.name, data);
+        dataToSign = lib.array.concatTyped(
+            hashConstants.identifier, new Uint8Array(hash));
+        break;
+      case nassh.agent.messages.KeyTypes.SSH_ECC:
+        if (flags !== 0) {
+          throw new Error(
+              'GSC.signRequest: unsupported flag value for ECC: ' +
+              flags.toString(2));
+        }
+        const hashAlgorithm =
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].hashAlgorithm;
+        if (hashAlgorithm) {
+          dataToSign = await window.crypto.subtle.digest(hashAlgorithm, data);
+        } else {
+          dataToSign = data;
+        }
+        break;
+      default:
+        throw new Error('GSC.signRequest: unsupported key type: ' + keyInfo);
+    }
 
+    await this.unlockKey_(manager, readerKeyId);
     const rawSignature = await manager.authenticate(dataToSign);
-    return lib.array.concatTyped(
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(
-            hashConstants.signaturePrefix.length)),
-        hashConstants.signaturePrefix,
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(rawSignature.length)),
-        rawSignature);
+
+    switch (keyInfo.type) {
+      case nassh.agent.messages.KeyTypes.SSH_RSA:
+        return lib.array.concatTyped(
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(
+                    hashConstants.signaturePrefix.length)),
+            hashConstants.signaturePrefix,
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
+            rawSignature);
+      case nassh.agent.messages.KeyTypes.SSH_ECC:
+        return lib.array.concatTyped(
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(keyInfo.prefix.length)),
+            keyInfo.prefix,
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
+            rawSignature);
+    }
   } finally {
     await manager.disconnect();
     await manager.releaseContext();
