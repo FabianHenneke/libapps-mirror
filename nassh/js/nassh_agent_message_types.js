@@ -220,6 +220,39 @@ nassh.agent.messages.decodeOid = function(asn1Bytes) {
 };
 
 /**
+ * Information about an elliptic curve required to use it for SSH
+ * authentication. This includes the prefix to be used in SSH agent responses
+ * as well as the hash algorithm that should be applied to the raw challenge
+ * before computing the signature (if any).
+ *
+ * @typedef {{prefix: !string, hashAlgorithm: string}} CurveInfo
+ */
+
+/**
+ * Map OIDs to information about their associated elliptic curve.
+ *
+ * @type {Object<!string, CurveInfo>}
+ * @private
+ */
+nassh.agent.messages.OidToCurveInfo = {
+  '1.2.840.10045.3.1.7': {
+    prefix: 'ecdsa-sha2-nistp256',
+    hashAlgorithm: 'SHA-256',
+  },
+  '1.3.132.0.34': {
+    prefix: 'ecdsa-sha2-nistp384',
+    hashAlgorithm: 'SHA-384',
+  },
+  '1.3.132.0.35': {
+    prefix: 'ecdsa-sha2-nistp521',
+    hashAlgorithm: 'SHA-512',
+  },
+  '1.3.101.112': {
+    prefix: 'ssh-ed25519',
+  },
+};
+
+/**
  * Map key types to generator function.
  *
  * @type {Object<!nassh.agent.messages.KeyTypes,
