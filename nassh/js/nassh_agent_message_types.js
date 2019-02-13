@@ -233,6 +233,9 @@ nassh.agent.messages.decodeOid = function(asn1Bytes) {
  *
  * @type {Object<!string, CurveInfo>}
  * @private
+ * @see https://tools.ietf.org/html/rfc5656
+ * @see https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-02
+ * @see https://tools.ietf.org/id/draft-koch-eddsa-for-openpgp-03.html#rfc.section.6
  */
 nassh.agent.messages.OidToCurveInfo = {
   '1.2.840.10045.3.1.7': {
