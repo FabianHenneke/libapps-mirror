@@ -399,13 +399,27 @@ nassh.agent.backends.GSC.prototype.signRequest =
       case nassh.agent.messages.KeyTypes.SSH_ECC:
         const prefix =
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix;
-        return lib.array.concatTyped(
+        const identifier =
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].identifier;
+        if (identifier !== undefined) {
+          return lib.array.concatTyped(
             new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(prefix.length)),
+                lib.array.uint32ToArrayBigEndian(
+                    prefix.length + identifier.length)),
             prefix,
+            identifier,
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
+        } else {
+          return lib.array.concatTyped(
+              new Uint8Array(
+                  lib.array.uint32ToArrayBigEndian(prefix.length)),
+              prefix,
+              new Uint8Array(
+                  lib.array.uint32ToArrayBigEndian(rawSignature.length)),
+              rawSignature);
+        }
     }
   } finally {
     await manager.disconnect();
