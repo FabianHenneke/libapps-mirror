@@ -397,10 +397,12 @@ nassh.agent.backends.GSC.prototype.signRequest =
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
       case nassh.agent.messages.KeyTypes.SSH_ECC:
+        const prefix =
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix;
         return lib.array.concatTyped(
             new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(keyInfo.prefix.length)),
-            keyInfo.prefix,
+                lib.array.uint32ToArrayBigEndian(prefix.length)),
+            prefix,
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
