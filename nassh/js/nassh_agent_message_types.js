@@ -236,15 +236,18 @@ nassh.agent.messages.decodeOid = function(asn1Bytes) {
  */
 nassh.agent.messages.OidToCurveInfo = {
   '1.2.840.10045.3.1.7': {
-    prefix: 'ecdsa-sha2-nistp256',
+    prefix: 'ecdsa-sha2-',
+    identifier: 'nistp256',
     hashAlgorithm: 'SHA-256',
   },
   '1.3.132.0.34': {
-    prefix: 'ecdsa-sha2-nistp384',
+    prefix: 'ecdsa-sha2-',
+    identifier: 'nistp384',
     hashAlgorithm: 'SHA-384',
   },
   '1.3.132.0.35': {
-    prefix: 'ecdsa-sha2-nistp521',
+    prefix: 'ecdsa-sha2-',
+    identifier: 'nistp521',
     hashAlgorithm: 'SHA-512',
   },
   '1.3.101.112': {
@@ -346,12 +349,27 @@ nassh.agent.messages
         'SmartCardManager.fetchKeyInfo: unsupported curve with OID: ' +
             curveOid);
   }
-  let prefix = new TextEncoder().encode(
+  const prefix = new TextEncoder().encode(
       nassh.agent.messages.OidToCurveInfo[curveOid].prefix);
-  return lib.array.concatTyped(
-      new Uint8Array(lib.array.uint32ToArrayBigEndian(prefix.length)),
-      prefix,
-      new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
-      key,
-  );
+  const identifier = new TextEncoder().encode(
+      nassh.agent.messages.OidToCurveInfo[curveOid].identifier);
+  if (identifier !== undefined) {
+    return lib.array.concatTyped(
+        new Uint8Array(lib.array.uint32ToArrayBigEndian(
+            prefix.length + identifier.length)),
+        prefix,
+        identifier,
+        new Uint8Array(lib.array.uint32ToArrayBigEndian(identifier.length)),
+        identifier,
+        new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
+        key,
+    );
+  } else {
+    return lib.array.concatTyped(
+        new Uint8Array(lib.array.uint32ToArrayBigEndian(prefix.length)),
+        prefix,
+        new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
+        key,
+    );
+  }
 };
