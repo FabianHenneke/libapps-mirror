@@ -250,7 +250,7 @@ nassh.agent.messages.OidToCurveInfo = {
     identifier: 'nistp521',
     hashAlgorithm: 'SHA-512',
   },
-  '1.3.101.112': {
+  '1.3.6.1.4.1.11591.15.1': {
     prefix: 'ssh-ed25519',
   },
 };
