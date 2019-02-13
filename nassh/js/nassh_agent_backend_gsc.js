@@ -1252,21 +1252,25 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
        * Command APDU for the 'GET DATA' command with the identifier of the
        * 'Application Related Data' data object as data.
        *
-       * Used to retrieve the 'Algorithm attributes' contained in the
-       * 'Application Related Data'.
+       * Used to retrieve the 'Algorithm attributes authentication' contained
+       * in the 'Application Related Data'.
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
        */
       const FETCH_APPLICATION_RELATED_DATA_APDU =
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
-      const algorithmId = appRelatedData.lookup(0xC5)[0];
+      const algorithmId = appRelatedData.lookup(0xC3)[0];
       switch (algorithmId) {
-        case 0x01:
+        case 1:
           return {type: nassh.agent.messages.KeyTypes.SSH_RSA};
-        case 0x12:
-          // EC key, subsequent bytes of DO C5 determine the curve OID
-          const curveOid = appRelatedData.lookup(0xC5).slice(1);
+        case 19:
+          // ECC with NIST curves
+        case 22:
+          // ECC with Ed25519 curve
+          // Curve is determined by the subsequent bytes encoding the OID
+          const curveOidBytes = appRelatedData.lookup(0xC3).slice(1);
+          const curveOid = nassh.agent.messages.decodeOid(curveOidBytes);
           if (!(curveOid in nassh.agent.messages.OidToCurveInfo)) {
             throw new Error(
                 'SmartCardManager.fetchKeyInfo: unsupported curve with OID: ' +
