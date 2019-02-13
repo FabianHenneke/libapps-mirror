@@ -344,25 +344,25 @@ nassh.agent.backends.GSC.prototype.signRequest =
         nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP);
 
     let dataToSign;
+    let rsaHashConstants;
     let keyInfo = await manager.fetchKeyInfo();
     switch (keyInfo.type) {
       case nassh.agent.messages.KeyTypes.SSH_RSA:
-        let hashConstants;
         if (flags === 0) {
-          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA1;
+          rsaHashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA1;
         } else if (flags & 0b100) {
-          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA512;
+          rsaHashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA512;
         } else if (flags & 0b10) {
-          hashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA256;
+          rsaHashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA256;
         } else {
           throw new Error(
               'GSC.signRequest: unsupported flag value for RSA: ' +
               flags.toString(2));
         }
         const hash = await window.crypto.subtle.digest(
-            hashConstants.name, data);
+            rsaHashConstants.name, data);
         dataToSign = lib.array.concatTyped(
-            hashConstants.identifier, new Uint8Array(hash));
+            rsaHashConstants.identifier, new Uint8Array(hash));
         break;
       case nassh.agent.messages.KeyTypes.SSH_ECC:
         if (flags !== 0) {
@@ -391,8 +391,8 @@ nassh.agent.backends.GSC.prototype.signRequest =
         return lib.array.concatTyped(
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(
-                    hashConstants.signaturePrefix.length)),
-            hashConstants.signaturePrefix,
+                    rsaHashConstants.signaturePrefix.length)),
+            rsaHashConstants.signaturePrefix,
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
