@@ -186,8 +186,9 @@ nassh.agent.messages
  * @enum {!number}
  */
 nassh.agent.messages.KeyTypes = {
-  SSH_RSA: 1,
-  SSH_ECC: 2,
+  RSA: 1,
+  ECDSA: 19,
+  EDDSA: 22,
 };
 
 /**
@@ -319,7 +320,7 @@ nassh.agent.messages.encodeUnsignedMpint = function(bytes) {
  * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
  */
 nassh.agent.messages
-    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.SSH_RSA] = function(
+    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.RSA] = function(
     exponent, modulus) {
   const exponentMpint = nassh.agent.messages.encodeUnsignedMpint(exponent);
   const modulusMpint = nassh.agent.messages.encodeUnsignedMpint(modulus);
@@ -337,15 +338,16 @@ nassh.agent.messages
 };
 
 /**
- * Generate a key blob for an EC public key.
+ * Generate a key blob for an ECDSA public key.
  *
  * @param {!string} curveOid The OID of the elliptic curve.
  * @param {!Uint8Array} key The public key.
  * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
  * @throws Will throw if curveOid represents an unsupported curve.
+ * @see https://tools.ietf.org/html/rfc5656#section-3.1
  */
 nassh.agent.messages
-    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.SSH_ECC] =
+    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.ECDSA] =
       function(curveOid, key) {
   if (!(curveOid in nassh.agent.messages.OidToCurveInfo)) {
     throw new Error(
@@ -356,23 +358,41 @@ nassh.agent.messages
       nassh.agent.messages.OidToCurveInfo[curveOid].prefix);
   const identifier = new TextEncoder().encode(
       nassh.agent.messages.OidToCurveInfo[curveOid].identifier);
-  if (identifier !== undefined) {
-    return lib.array.concatTyped(
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(
-            prefix.length + identifier.length)),
-        prefix,
-        identifier,
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(identifier.length)),
-        identifier,
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
-        key,
-    );
-  } else {
-    return lib.array.concatTyped(
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(prefix.length)),
-        prefix,
-        new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
-        key,
-    );
+  return lib.array.concatTyped(
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(
+          prefix.length + identifier.length)),
+      prefix,
+      identifier,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(identifier.length)),
+      identifier,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
+      key,
+  );
+};
+
+/**
+ * Generate a key blob for an EDDSA public key.
+ *
+ * @param {!string} curveOid The OID of the elliptic curve.
+ * @param {!Uint8Array} key The public key.
+ * @returns {!Uint8Array} A key blob for use in the SSH agent protocol.
+ * @throws Will throw if curveOid represents an unsupported curve.
+ * @see https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-02#section-4
+ */
+nassh.agent.messages
+    .keyBlobGenerators_[nassh.agent.messages.KeyTypes.EDDSA] =
+      function(curveOid, key) {
+  if (!(curveOid in nassh.agent.messages.OidToCurveInfo)) {
+    throw new Error(
+        'SmartCardManager.fetchKeyInfo: unsupported curve with OID: ' +
+            curveOid);
   }
+  const prefix = new TextEncoder().encode(
+      nassh.agent.messages.OidToCurveInfo[curveOid].prefix);
+  return lib.array.concatTyped(
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(prefix.length)),
+      prefix,
+      new Uint8Array(lib.array.uint32ToArrayBigEndian(key.length)),
+      key,
+  );
 };

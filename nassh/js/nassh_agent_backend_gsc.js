@@ -347,7 +347,7 @@ nassh.agent.backends.GSC.prototype.signRequest =
     let rsaHashConstants;
     let keyInfo = await manager.fetchKeyInfo();
     switch (keyInfo.type) {
-      case nassh.agent.messages.KeyTypes.SSH_RSA:
+      case nassh.agent.messages.KeyTypes.RSA:
         if (flags === 0) {
           rsaHashConstants = nassh.agent.backends.GSC.HashAlgorithms.SHA1;
         } else if (flags & 0b100) {
@@ -364,7 +364,8 @@ nassh.agent.backends.GSC.prototype.signRequest =
         dataToSign = lib.array.concatTyped(
             rsaHashConstants.identifier, new Uint8Array(hash));
         break;
-      case nassh.agent.messages.KeyTypes.SSH_ECC:
+      case nassh.agent.messages.KeyTypes.ECDSA:
+      case nassh.agent.messages.KeyTypes.EDDSA:
         if (flags !== 0) {
           throw new Error(
               'GSC.signRequest: unsupported flag value for ECC: ' +
@@ -386,8 +387,9 @@ nassh.agent.backends.GSC.prototype.signRequest =
     await this.unlockKey_(manager, readerKeyId);
     const rawSignature = await manager.authenticate(dataToSign);
 
+    let prefix;
     switch (keyInfo.type) {
-      case nassh.agent.messages.KeyTypes.SSH_RSA:
+      case nassh.agent.messages.KeyTypes.RSA:
         return lib.array.concatTyped(
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(
@@ -396,13 +398,12 @@ nassh.agent.backends.GSC.prototype.signRequest =
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
-      case nassh.agent.messages.KeyTypes.SSH_ECC:
-        const prefix =
-            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix;
-        const identifier =
-            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].identifier;
-        if (identifier !== undefined) {
-          return lib.array.concatTyped(
+      case nassh.agent.messages.KeyTypes.ECDSA:
+        prefix = new TextEncoder().encode(
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
+        const identifier = new TextEncoder().encode(
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].identifier);
+        return lib.array.concatTyped(
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(
                     prefix.length + identifier.length)),
@@ -411,15 +412,16 @@ nassh.agent.backends.GSC.prototype.signRequest =
             new Uint8Array(
                 lib.array.uint32ToArrayBigEndian(rawSignature.length)),
             rawSignature);
-        } else {
-          return lib.array.concatTyped(
-              new Uint8Array(
-                  lib.array.uint32ToArrayBigEndian(prefix.length)),
-              prefix,
-              new Uint8Array(
-                  lib.array.uint32ToArrayBigEndian(rawSignature.length)),
-              rawSignature);
-        }
+      case nassh.agent.messages.KeyTypes.EDDSA:
+        prefix = new TextEncoder().encode(
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
+        return lib.array.concatTyped(
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(prefix.length)),
+            prefix,
+            new Uint8Array(
+                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
+            rawSignature);
     }
   } finally {
     await manager.disconnect();
@@ -1274,14 +1276,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
-      const algorithmId = appRelatedData.lookup(0xC3)[0];
-      switch (algorithmId) {
-        case 1:
-          return {type: nassh.agent.messages.KeyTypes.SSH_RSA};
-        case 19:
-          // ECC with NIST curves
-        case 22:
-          // ECC with Ed25519 curve
+      const type = appRelatedData.lookup(0xC3)[0];
+      switch (type) {
+        case nassh.agent.messages.KeyTypes.RSA:
+          return {type};
+        case nassh.agent.messages.KeyTypes.ECDSA:
+        case nassh.agent.messages.KeyTypes.EDDSA:
           // Curve is determined by the subsequent bytes encoding the OID
           const curveOidBytes = appRelatedData.lookup(0xC3).slice(1);
           const curveOid = nassh.agent.messages.decodeOid(curveOidBytes);
@@ -1290,11 +1290,11 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
                 'SmartCardManager.fetchKeyInfo: unsupported curve with OID: ' +
                     curveOid);
           }
-          return {type: nassh.agent.messages.KeyTypes.SSH_ECC, curveOid};
+          return {type, curveOid};
         default:
           throw new Error(
               'SmartCardManager.fetchKeyInfo: unsupported algorithm ID: ' +
-                  algorithmId);
+                  type);
       }
     default:
       throw new Error(
@@ -1332,12 +1332,13 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           await this.transmit(READ_AUTHENTICATION_PUBLIC_KEY_APDU));
       const keyInfo = await this.fetchKeyInfo();
       switch (keyInfo.type) {
-        case nassh.agent.messages.KeyTypes.SSH_RSA:
+        case nassh.agent.messages.KeyTypes.RSA:
           const exponent = publicKeyTemplate.lookup(0x82);
           const modulus = publicKeyTemplate.lookup(0x81);
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, exponent, modulus);
-        case nassh.agent.messages.KeyTypes.SSH_ECC:
+        case nassh.agent.messages.KeyTypes.ECDSA:
+        case nassh.agent.messages.KeyTypes.EDDSA:
           const key = publicKeyTemplate.lookup(0x86);
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, keyInfo.curveOid, key);
