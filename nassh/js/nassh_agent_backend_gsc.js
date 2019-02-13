@@ -373,7 +373,8 @@ nassh.agent.backends.GSC.prototype.signRequest =
         const hashAlgorithm =
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].hashAlgorithm;
         if (hashAlgorithm) {
-          dataToSign = await window.crypto.subtle.digest(hashAlgorithm, data);
+          dataToSign = new Uint8Array(
+              await window.crypto.subtle.digest(hashAlgorithm, data));
         } else {
           dataToSign = data;
         }
