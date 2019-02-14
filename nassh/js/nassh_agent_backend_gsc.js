@@ -365,20 +365,23 @@ nassh.agent.backends.GSC.prototype.signRequest =
             rsaHashConstants.identifier, new Uint8Array(hash));
         break;
       case nassh.agent.messages.KeyTypes.ECDSA:
-      case nassh.agent.messages.KeyTypes.EDDSA:
         if (flags !== 0) {
           throw new Error(
-              'GSC.signRequest: unsupported flag value for ECC: ' +
+              'GSC.signRequest: unsupported flag value for ECDSA: ' +
               flags.toString(2));
         }
         const hashAlgorithm =
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].hashAlgorithm;
-        if (hashAlgorithm) {
-          dataToSign = new Uint8Array(
+        dataToSign = new Uint8Array(
               await window.crypto.subtle.digest(hashAlgorithm, data));
-        } else {
-          dataToSign = data;
+        break;
+      case nassh.agent.messages.KeyTypes.EDDSA:
+        if (flags !== 0) {
+          throw new Error(
+              'GSC.signRequest: unsupported flag value for EdDSA: ' +
+              flags.toString(2));
         }
+        dataToSign = data;
         break;
       default:
         throw new Error('GSC.signRequest: unsupported key type: ' + keyInfo);
