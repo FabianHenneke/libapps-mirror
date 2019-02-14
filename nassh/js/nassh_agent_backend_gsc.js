@@ -391,13 +391,8 @@ nassh.agent.backends.GSC.prototype.signRequest =
     switch (keyInfo.type) {
       case nassh.agent.messages.KeyTypes.RSA:
         return lib.array.concatTyped(
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(
-                    rsaHashConstants.signaturePrefix.length)),
-            rsaHashConstants.signaturePrefix,
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
-            rawSignature);
+            nassh.agent.messages.encodeString(rsaHashConstants.signaturePrefix),
+            nassh.agent.messages.encodeString(rawSignature));
       case nassh.agent.messages.KeyTypes.ECDSA:
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
@@ -416,12 +411,8 @@ nassh.agent.backends.GSC.prototype.signRequest =
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
         return lib.array.concatTyped(
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(prefix.length)),
-            prefix,
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
-            rawSignature);
+            nassh.agent.messages.encodeString(prefix),
+            nassh.agent.messages.encodeString(rawSignature));
     }
   } finally {
     await manager.disconnect();
