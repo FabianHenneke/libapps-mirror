@@ -394,19 +394,19 @@ nassh.agent.backends.GSC.prototype.signRequest =
             nassh.agent.messages.encodeString(rsaHashConstants.signaturePrefix),
             nassh.agent.messages.encodeString(rawSignature));
       case nassh.agent.messages.KeyTypes.ECDSA:
+        const rRaw = rawSignature.subarray(0, rawSignature.length / 2);
+        const sRaw = rawSignature.subarray(rawSignature.length / 2);
+        const rMpint = nassh.agent.messages.encodeUnsignedMpint(rRaw);
+        const sMpint = nassh.agent.messages.encodeUnsignedMpint(sRaw);
+        const signatureBlob = lib.array.concatTyped(rMpint, sMpint);
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
         const identifier = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].identifier);
         return lib.array.concatTyped(
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(
-                    prefix.length + identifier.length)),
-            prefix,
-            identifier,
-            new Uint8Array(
-                lib.array.uint32ToArrayBigEndian(rawSignature.length)),
-            rawSignature);
+            nassh.agent.messages.encodeString(
+                lib.array.concatTyped(prefix, identifier)),
+            nassh.agent.messages.encodeString(signatureBlob));
       case nassh.agent.messages.KeyTypes.EDDSA:
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
