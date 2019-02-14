@@ -285,41 +285,42 @@ nassh.agent.messages.generateKeyBlob = function(keyType, ...args) {
 };
 
 /**
- * Encode a byte array as an arbitrary length binary string.
+ * Encode a byte array as a 'string' on the wire.
  * @see https://tools.ietf.org/html/rfc4251#section-5
  *
  * @param {!Uint8Array} bytes Raw bytes.
  * @returns {!Uint8Array} Wire encoding as a string.
  */
-nassh.agent.messages.encodeString = function(bytes) {
-  return lib.array.concatTyped(
-      new Uint8Array(lib.array.uint32ToArrayBigEndian(bytes.length)), bytes);
+nassh.agent.messages.encodeAsString = function(bytes) {
+  const str = new Uint8Array(4 + bytes.length);
+  const view = new DataView(str.buffer);
+  view.setUint32(0, bytes.length);
+  str.set(bytes, 4);
+  return str;
 };
 
 /**
- * Encode an unsigned integer as an mpint.
+ * Encode an unsigned integer as an 'mpint' on the wire.
  * @see https://tools.ietf.org/html/rfc4251#section-5
  *
  * @param {!Uint8Array} bytes Raw bytes of an unsigned integer.
- * @returns {!Uint8Array} Wire encoding of an mpint
+ * @returns {!Uint8Array} Wire encoding as an mpint.
  */
-nassh.agent.messages.encodeUnsignedMpint = function(bytes) {
-  let mpint = new Uint8Array(bytes);
-  let pos = 0;
-
+nassh.agent.messages.encodeAsMpint = function(bytes) {
   // Strip leading zeros.
-  while (pos < mpint.length && !mpint[pos]) {
+  let pos = 0;
+  while (pos < bytes.length && !bytes[pos]) {
     ++pos;
   }
-  mpint = mpint.subarray(pos);
+  let mpint = bytes.subarray(pos);
 
   // Add a leading zero if the positive result would otherwise be treated as a
   // signed mpint.
   if (mpint.length && (mpint[0] & (1 << 7))) {
     mpint = lib.array.concatTyped(new Uint8Array([0]), mpint);
   }
-  return lib.array.concatTyped(
-      new Uint8Array(lib.array.uint32ToArrayBigEndian(mpint.length)), mpint);
+
+  return nassh.agent.messages.encodeAsString(mpint);
 };
 
 /**
@@ -335,11 +336,11 @@ nassh.agent.messages.encodeUnsignedMpint = function(bytes) {
 nassh.agent.messages
     .keyBlobGenerators_[nassh.agent.messages.KeyTypes.RSA] = function(
     exponent, modulus) {
-  const exponentMpint = nassh.agent.messages.encodeUnsignedMpint(exponent);
-  const modulusMpint = nassh.agent.messages.encodeUnsignedMpint(modulus);
+  const exponentMpint = nassh.agent.messages.encodeAsMpint(exponent);
+  const modulusMpint = nassh.agent.messages.encodeAsMpint(modulus);
   const BYTES_SSH_RSA = new TextEncoder().encode('ssh-rsa');
   return lib.array.concatTyped(
-      nassh.agent.messages.encodeString(BYTES_SSH_RSA),
+      nassh.agent.messages.encodeAsString(BYTES_SSH_RSA),
       exponentMpint,
       modulusMpint,
   );
@@ -367,10 +368,10 @@ nassh.agent.messages
   const identifier = new TextEncoder().encode(
       nassh.agent.messages.OidToCurveInfo[curveOid].identifier);
   return lib.array.concatTyped(
-      nassh.agent.messages.encodeString(
+      nassh.agent.messages.encodeAsString(
           lib.array.concatTyped(prefix, identifier)),
-      nassh.agent.messages.encodeString(identifier),
-      nassh.agent.messages.encodeString(key));
+      nassh.agent.messages.encodeAsString(identifier),
+      nassh.agent.messages.encodeAsString(key));
 };
 
 /**
@@ -393,6 +394,6 @@ nassh.agent.messages
   const prefix = new TextEncoder().encode(
       nassh.agent.messages.OidToCurveInfo[curveOid].prefix);
   return lib.array.concatTyped(
-      nassh.agent.messages.encodeString(prefix),
-      nassh.agent.messages.encodeString(key));
+      nassh.agent.messages.encodeAsString(prefix),
+      nassh.agent.messages.encodeAsString(key));
 };

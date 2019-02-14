@@ -394,28 +394,28 @@ nassh.agent.backends.GSC.prototype.signRequest =
     switch (keyInfo.type) {
       case nassh.agent.messages.KeyTypes.RSA:
         return lib.array.concatTyped(
-            nassh.agent.messages.encodeString(rsaHashConstants.signaturePrefix),
-            nassh.agent.messages.encodeString(rawSignature));
+            nassh.agent.messages.encodeAsString(rsaHashConstants.signaturePrefix),
+            nassh.agent.messages.encodeAsString(rawSignature));
       case nassh.agent.messages.KeyTypes.ECDSA:
         const rRaw = rawSignature.subarray(0, rawSignature.length / 2);
         const sRaw = rawSignature.subarray(rawSignature.length / 2);
-        const rMpint = nassh.agent.messages.encodeUnsignedMpint(rRaw);
-        const sMpint = nassh.agent.messages.encodeUnsignedMpint(sRaw);
+        const rMpint = nassh.agent.messages.encodeAsMpint(rRaw);
+        const sMpint = nassh.agent.messages.encodeAsMpint(sRaw);
         const signatureBlob = lib.array.concatTyped(rMpint, sMpint);
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
         const identifier = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].identifier);
         return lib.array.concatTyped(
-            nassh.agent.messages.encodeString(
+            nassh.agent.messages.encodeAsString(
                 lib.array.concatTyped(prefix, identifier)),
-            nassh.agent.messages.encodeString(signatureBlob));
+            nassh.agent.messages.encodeAsString(signatureBlob));
       case nassh.agent.messages.KeyTypes.EDDSA:
         prefix = new TextEncoder().encode(
             nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
         return lib.array.concatTyped(
-            nassh.agent.messages.encodeString(prefix),
-            nassh.agent.messages.encodeString(rawSignature));
+            nassh.agent.messages.encodeAsString(prefix),
+            nassh.agent.messages.encodeAsString(rawSignature));
     }
   } finally {
     await manager.disconnect();
