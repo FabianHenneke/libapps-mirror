@@ -375,8 +375,17 @@ nassh.agent.backends.GSC.prototype.signRequest =
         dataToSign = new Uint8Array(
             await window.crypto.subtle.digest(hashAlgorithm, data));
         break;
+      case nassh.agent.messages.KeyTypes.EDDSA:
+        if (flags !== 0) {
+          throw new Error(
+              `GSC.signRequest: unsupported flag value for EdDSA: ` +
+              `0x${flags.toString(16)}`);
+        }
+        dataToSign = data;
+        break;
       default:
-        throw new Error(`GSC.signRequest: unsupported key type: ` +
+        throw new Error(
+            `GSC.signRequest: unsupported key type: ` +
             `${JSON.stringify(keyInfo)}`);
     }
 
@@ -404,6 +413,12 @@ nassh.agent.backends.GSC.prototype.signRequest =
             nassh.agent.messages.encodeAsWireString(
                 lib.array.concatTyped(prefix, identifier)),
             nassh.agent.messages.encodeAsWireString(signatureBlob));
+      case nassh.agent.messages.KeyTypes.EDDSA:
+        prefix = new TextEncoder().encode(
+            nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid].prefix);
+        return lib.array.concatTyped(
+            nassh.agent.messages.encodeAsWireString(prefix),
+            nassh.agent.messages.encodeAsWireString(rawSignature));
     }
   } finally {
     await manager.disconnect();
@@ -1263,6 +1278,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
         case nassh.agent.messages.KeyTypes.RSA:
           return {type};
         case nassh.agent.messages.KeyTypes.ECDSA:
+        case nassh.agent.messages.KeyTypes.EDDSA:
           // Curve is determined by the subsequent bytes encoding the OID.
           const curveOidBytes = appRelatedData.lookup(0xC3).slice(1);
           const curveOid = nassh.agent.messages.decodeOid(curveOidBytes);
@@ -1270,7 +1286,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
             throw new Error(
                 `SmartCardManager.fetchKeyInfo: unsupported curve OID: ` +
                 `${curveOid}`);
-
           }
           return {type, curveOid};
         default:
@@ -1320,6 +1335,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, exponent, modulus);
         case nassh.agent.messages.KeyTypes.ECDSA:
+        case nassh.agent.messages.KeyTypes.EDDSA:
           const key = publicKeyTemplate.lookup(0x86);
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, keyInfo.curveOid, key);
