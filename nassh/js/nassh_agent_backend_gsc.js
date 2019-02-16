@@ -1378,9 +1378,9 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
       const asn1Certificate = asn1js.fromBER(certificateBytes.buffer);
       const certificate =
           new pkijs.Certificate({schema: asn1Certificate.result});
-      const algorithmOid = nassh.agent.messages.decodeOid(
-          asn1js.fromBER(certificate.subjectPublicKeyInfo.algorithm.valueHex));
-      switch (algorithmOid) {
+      const algorithmId =
+          certificate.subjectPublicKeyInfo.algorithm.algorithmId;
+      switch (algorithmId) {
         case '1.2.840.113549.1.1.1':
           // RSA
           return {type: nassh.agent.messages.KeyTypes.RSA};
