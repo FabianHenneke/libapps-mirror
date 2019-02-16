@@ -4,7 +4,7 @@
 
 'use strict';
 
-import { asn1js, pkijs } from './nassh_deps.rollup.js';
+import {asn1js, pkijs} from './nassh_deps.rollup.js';
 
 /**
  * @fileoverview An SSH agent backend that supports private keys stored on smart
@@ -1389,10 +1389,9 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
           const algorithmParams =
               certificate.subjectPublicKeyInfo.algorithm.algorithmParams;
           const curveOid = algorithmParams.valueBlock.toJSON().value;
-          if (!(
-              curveOid in nassh.agent.messages.OidToCurveInfo &&
-              'pivAlgorithmId' in nassh.agent.messages.OidToCurveInfo[curveOid]
-              )) {
+          if (!(curveOid in nassh.agent.messages.OidToCurveInfo &&
+                'pivAlgorithmId' in
+                    nassh.agent.messages.OidToCurveInfo[curveOid])) {
             throw new Error(
                 `SmartCardManager.fetchKeyInfo: unsupported curve OID for ` +
                 `PIV: ${curveOid}`);
@@ -1481,8 +1480,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const certificate =
           new pkijs.Certificate({schema: asn1Certificate.result});
       const rawPublicKey =
-          certificate.subjectPublicKeyInfo.subjectPublicKey
-          .valueBlock.valueHex;
+          certificate.subjectPublicKeyInfo.subjectPublicKey.valueBlock.valueHex;
       const keyInfo = await this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA:
@@ -1730,15 +1728,14 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
       const VERIFY_PIN_APDU_HEADER_PIV = [0x00, 0x20, 0x00, 0x80];
       // PIV Application PIN can only be numeric and between 6 and 8 digits
       // long (see PIV specification Section 2.4.3).
-      if (pinBytes.length < 6 ||
-          pinBytes.length > 8 ||
+      if (pinBytes.length < 6 || pinBytes.length > 8 ||
           [].some.call(pinBytes, (byte) => byte < 0x30 || byte > 0x39)) {
         return false;
       }
       // Pad to 8 bytes by appending (at most two) 0xFF bytes.
       let paddedPinBytes =
           lib.array.concatTyped(pinBytes, new Uint8Array([0xFF, 0xFF]))
-          .subarray(0, 8);
+              .subarray(0, 8);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...VERIFY_PIN_APDU_HEADER_PIV,
@@ -1820,9 +1817,10 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
                   [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
               paddedData);
           const GENERAL_AUTHENTICATE_RSA_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
-          const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
-              await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-                  ...GENERAL_AUTHENTICATE_RSA_APDU_HEADER, authTemplate)));
+          const signedAuthTemplate =
+              nassh.agent.backends.GSC.DataObject.fromBytes(
+                  await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+                      ...GENERAL_AUTHENTICATE_RSA_APDU_HEADER, authTemplate)));
           return signedAuthTemplate.lookup(0x82).value;
         }
         case nassh.agent.messages.KeyTypes.ECDSA: {
@@ -1832,13 +1830,15 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
               new Uint8Array(
                   [0x7C, 4 + data.length, 0x82, 0x00, 0x81, data.length]),
               data);
-          const algorithmId = nassh.agent.messages
-              .OidToCurveInfo[keyInfo.curveOid].pivAlgorithmId;
+          const algorithmId =
+              nassh.agent.messages.OidToCurveInfo[keyInfo.curveOid]
+                  .pivAlgorithmId;
           const GENERAL_AUTHENTICATE_ECC_APDU_HEADER =
               [0x00, 0x87, algorithmId, 0x9A];
-          const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
-              await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-                  ...GENERAL_AUTHENTICATE_ECC_APDU_HEADER, authTemplate)));
+          const signedAuthTemplate =
+              nassh.agent.backends.GSC.DataObject.fromBytes(
+                  await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+                      ...GENERAL_AUTHENTICATE_ECC_APDU_HEADER, authTemplate)));
           const asn1SignatureBytes = signedAuthTemplate.lookup(0x82).value;
           const asn1Signature = asn1js.fromBER(asn1SignatureBytes.buffer);
           const asn1SequenceBlock = asn1Signature.result.valueBlock;
