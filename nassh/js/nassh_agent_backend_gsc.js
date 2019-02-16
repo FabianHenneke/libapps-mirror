@@ -1472,12 +1472,13 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const asn1Certificate = asn1js.fromBER(certificateBytes.buffer);
       const certificate =
           new pkijs.Certificate({schema: asn1Certificate.result});
-      const asn1PublicKey =
-          asn1js.fromBER(certificate.subjectPublicKeyInfo.subjectPublicKey
-                             .valueBlock.valueHex);
+      const rawPublicKey =
+          certificate.subjectPublicKeyInfo.subjectPublicKey
+          .valueBlock.valueHex;
       const keyInfo = this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA:
+          const asn1PublicKey = asn1js.fromBER(rawPublicKey);
           const rsaPublicKey =
               new pkijs.RSAPublicKey({schema: asn1PublicKey.result});
           const exponent =
@@ -1487,13 +1488,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, exponent, modulus);
         case nassh.agent.messages.KeyTypes.ECDSA:
-          const ecPublicKey =
-              new pkijs.ECPublicKey({schema: asn1PublicKey.result});
-          // @see http://www.secg.org/sec1-v2.pdf (2.3.3)
-          const keyOctets = lib.array.concatTyped(
-              new Uint8Array([0x04]), ecPublicKey.x, ecPublicKey.y);
           return nassh.agent.messages.generateKeyBlob(
-              keyInfo.type, keyInfo.curveOid, keyOctets);
+              keyInfo.type, keyInfo.curveOid, new Uint8Array(rawPublicKey));
         default:
           throw new Error(
               `SmartCardManager.fetchPublicKeyBlob: unsupported key type: ` +
