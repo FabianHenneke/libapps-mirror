@@ -1800,24 +1800,42 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * on the smart card.
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
-      // TODO: Support ECC (replace 0x07 with 0x11...)
-      const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
-      // TODO: Support ECC (no padding necessary)
-      const paddedData = lib.array.concatTyped(
-          new Uint8Array([0x00, 0x01]),
-          new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
-          new Uint8Array([0x00]),
-          data);
-      // Create Dynamic Authentication Template (see Section 3.2.4 & Table 7)
-      const authTemplate = lib.array.concatTyped(
-          new Uint8Array(
-              [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
-          paddedData);
-      const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
-          await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-              ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
-      // TODO: Support ECC (value contains DER encoded r and s)
-      return signedAuthTemplate.lookup(0x82).value;
+      const keyInfo = this.fetchKeyInfo();
+      switch (keyInfo.type) {
+        case nassh.agent.messages.KeyTypes.RSA:
+          const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
+          const paddedData = lib.array.concatTyped(
+              new Uint8Array([0x00, 0x01]),
+              new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
+              new Uint8Array([0x00]),
+              data);
+          // Create Dynamic Authentication Template.
+          // @see Section 3.2.4, Table 7 & Table 20
+          const authTemplate = lib.array.concatTyped(
+              new Uint8Array(
+                  [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
+              paddedData);
+          const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
+              await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+                  ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
+          return signedAuthTemplate.lookup(0x82).value;
+        case nassh.agent.messages.KeyTypes.ECDSA:
+          const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x11, 0x9A];
+          // Create Dynamic Authentication Template.
+          // @see Section 3.2.4, Table 7 & Table 20
+          const authTemplate = lib.array.concatTyped(
+              new Uint8Array(
+                  [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
+              data);
+          const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
+              await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
+                  ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
+          const asn1SignatureBytes = signedAuthTemplate.lookup(0x82).value;
+          const asn1Signature = asn1js.fromBER(asn1SignatureBytes.buffer);
+          // TODO: Support ECC (value contains DER encoded r and s)
+          console.log(asn1Signature);
+          throw new Error('NOT SUPPORTED');
+      }
     default:
       throw new Error(
           'SmartCardManager.authenticate: no or unsupported applet selected');
