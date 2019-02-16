@@ -1724,7 +1724,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
       // long (see PIV specification Section 2.4.3).
       if (pinBytes.length < 6 ||
           pinBytes.length > 8 ||
-          [].some.call(pinBytes, (byte) => {byte < 0x30 && byte > 0x39})) {
+          [].some.call(pinBytes, (byte) => byte < 0x30 || byte > 0x39)) {
         return false;
       }
       // Pad to 8 bytes by appending (at most two) 0xFF bytes.
