@@ -1790,14 +1790,13 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
     case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
       /**
        * Header bytes of the command APDU for the 'GENERAL AUTHENTICATE'
-       * command (PIV), using the RSA-2048 key algorithm (0x07) with the
-       * certificate in slot 9A (0x9A).
+       * command (PIV), using the RSA-2048 algorithm (0x07) resp. ECC P-256
+       * algorithm (0x11) with the certificate in slot 9A (0x9A).
        *
        * Used to perform a signature operation using the authentication subkey
        * on the smart card.
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
-      const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
       const keyInfo = this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA: {
@@ -1812,26 +1811,27 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
               new Uint8Array(
                   [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
               paddedData);
+          const GENERAL_AUTHENTICATE_RSA_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
           const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
               await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-                  ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
+                  ...GENERAL_AUTHENTICATE_RSA_APDU_HEADER, authTemplate)));
           return signedAuthTemplate.lookup(0x82).value;
         }
         case nassh.agent.messages.KeyTypes.ECDSA: {
           // Create Dynamic Authentication Template.
-          // @see Section 3.2.4, Table 7 & Table 20
+          // @see Section 3.2.4, Table 7 & Table 20 (adapted to EC P-256)
           const authTemplate = lib.array.concatTyped(
-              new Uint8Array(
-                  [0x7C, 0x82, 0x01, 0x06, 0x82, 0x00, 0x81, 0x82, 0x01, 0x00]),
-              data);
+              new Uint8Array([0x7C, 0x24, 0x82, 0x00, 0x81, 0x20]), data);
+          const GENERAL_AUTHENTICATE_ECC_APDU_HEADER = [0x00, 0x87, 0x11, 0x9A];
           const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
               await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
-                  ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
+                  ...GENERAL_AUTHENTICATE_ECC_APDU_HEADER, authTemplate)));
           const asn1SignatureBytes = signedAuthTemplate.lookup(0x82).value;
           const asn1Signature = asn1js.fromBER(asn1SignatureBytes.buffer);
-          // TODO: Support ECC (value contains DER encoded r and s)
-          console.log(asn1Signature);
-          throw new Error('NOT SUPPORTED');
+          const asn1SequenceBlock = asn1Signature.result.valueBlock;
+          const x = asn1SequenceBlock.value[0].valueBlock.valueHex;
+          const y = asn1SequenceBlock.value[1].valueBlock.valueHex;
+          return lib.array.concatTyped(new Uint8Array(x), new Uint8Array(y));
         }
       }
     default:
