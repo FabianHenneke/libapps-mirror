@@ -1475,7 +1475,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const rawPublicKey =
           certificate.subjectPublicKeyInfo.subjectPublicKey
           .valueBlock.valueHex;
-      const keyInfo = this.fetchKeyInfo();
+      const keyInfo = await this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA:
           const asn1PublicKey = asn1js.fromBER(rawPublicKey);
@@ -1797,7 +1797,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * on the smart card.
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
-      const keyInfo = this.fetchKeyInfo();
+      const keyInfo = await this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA: {
           const paddedData = lib.array.concatTyped(
