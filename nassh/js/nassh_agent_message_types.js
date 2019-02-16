@@ -303,9 +303,13 @@ nassh.agent.messages.decodeOid = function(asn1Bytes) {
  * Information about an elliptic curve required to use it for SSH
  * authentication. This includes the prefix to be used in SSH agent responses
  * as well as the hash algorithm that should be applied to the raw challenge
- * before computing the signature (if any).
+ * before computing the signature (if any). The identifier of a NIST curve
+ * appears twice in the public key blob and is thus specified separately. For
+ * curves that are to be used with the PIV applet, the algorithm ID is
+ * specified.
  *
- * @typedef {{prefix: !string, hashAlgorithm: string}} CurveInfo
+ * @typedef {{prefix: !string, identifier: string, hashAlgorithm: string,
+ *     pivAlgorithmId: string}} CurveInfo
  */
 
 /**
