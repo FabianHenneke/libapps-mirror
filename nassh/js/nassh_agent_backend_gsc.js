@@ -1332,14 +1332,14 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
           new nassh.agent.backends.GSC.CommandAPDU(0x00, 0xCA, 0x00, 0x6E);
       const appRelatedData = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(FETCH_APPLICATION_RELATED_DATA_APDU));
-      const type = appRelatedData.lookup(0xC3)[0];
+      const type = appRelatedData.lookup(0xC3).value[0];
       switch (type) {
         case nassh.agent.messages.KeyTypes.RSA:
           return {type};
         case nassh.agent.messages.KeyTypes.ECDSA:
         case nassh.agent.messages.KeyTypes.EDDSA:
           // Curve is determined by the subsequent bytes encoding the OID.
-          const curveOidBytes = appRelatedData.lookup(0xC3).slice(1);
+          const curveOidBytes = appRelatedData.lookup(0xC3).value.slice(1);
           const curveOid = nassh.agent.messages.decodeOid(curveOidBytes);
           if (!(curveOid in nassh.agent.messages.OidToCurveInfo)) {
             throw new Error(
@@ -1388,13 +1388,13 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const keyInfo = await this.fetchKeyInfo();
       switch (keyInfo.type) {
         case nassh.agent.messages.KeyTypes.RSA:
-          const exponent = publicKeyTemplate.lookup(0x82);
-          const modulus = publicKeyTemplate.lookup(0x81);
+          const exponent = publicKeyTemplate.lookup(0x82).value;
+          const modulus = publicKeyTemplate.lookup(0x81).value;
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, exponent, modulus);
         case nassh.agent.messages.KeyTypes.ECDSA:
         case nassh.agent.messages.KeyTypes.EDDSA:
-          const key = publicKeyTemplate.lookup(0x86);
+          const key = publicKeyTemplate.lookup(0x86).value;
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, keyInfo.curveOid, key);
         default:
