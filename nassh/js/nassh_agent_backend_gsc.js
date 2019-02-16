@@ -1502,8 +1502,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
     }
     default:
       throw new Error(
-          'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
-          'selected');
+          `SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ` +
+          `selected: ${this.appletSelected_}`);
   }
 };
 
@@ -1559,8 +1559,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
           await window.crypto.subtle.digest('SHA-1', certificateBytes.buffer));
     default:
       throw new Error(
-          'SmartCardManager.fetchAuthenticationPublicKeyId: no or ' +
-          'unsupported applet selected');
+          `SmartCardManager.fetchAuthenticationPublicKeyId: no or ` +
+          `unsupported applet selected: ${this.appletSelected_}`);
   }
 };
 
@@ -1617,8 +1617,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
       break;
     default:
       throw new Error(
-          'SmartCardManager.fetchPINVerificationTriesRemaining: no or ' +
-          'unsupported applet selected');
+          `SmartCardManager.fetchPINVerificationTriesRemaining: no or ` +
+          `unsupported applet selected: ${this.appletSelected_}`);
   }
 };
 
@@ -1761,7 +1761,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
       }
     default:
       throw new Error(
-          'SmartCardManager.verifyPIN: no or unsupported applet selected');
+          `SmartCardManager.verifyPIN: no or unsupported applet selected: ` +
+          `${this.appletSelected_}`);
   }
 };
 
@@ -1838,7 +1839,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
       }
     default:
       throw new Error(
-          'SmartCardManager.authenticate: no or unsupported applet selected');
+          `SmartCardManager.authenticate: no or unsupported applet ` +
+          `selected: ${this.appletSelected_}`);
   }
 };
 
