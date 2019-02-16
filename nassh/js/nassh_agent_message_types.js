@@ -322,11 +322,13 @@ nassh.agent.messages.OidToCurveInfo = {
     prefix: 'ecdsa-sha2-',
     identifier: 'nistp256',
     hashAlgorithm: 'SHA-256',
+    pivAlgorithmId: 0x11,
   },
   '1.3.132.0.34': {
     prefix: 'ecdsa-sha2-',
     identifier: 'nistp384',
     hashAlgorithm: 'SHA-384',
+    pivAlgorithmId: 0x14,
   },
   '1.3.132.0.35': {
     prefix: 'ecdsa-sha2-',

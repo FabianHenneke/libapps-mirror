@@ -1827,10 +1827,15 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
         }
         case nassh.agent.messages.KeyTypes.ECDSA: {
           // Create Dynamic Authentication Template.
-          // @see Section 3.2.4, Table 7 & Table 20 (adapted to EC P-256)
+          // @see Section 3.2.4, Table 7 & Table 20 (adapted to ECC)
           const authTemplate = lib.array.concatTyped(
-              new Uint8Array([0x7C, 0x24, 0x82, 0x00, 0x81, 0x20]), data);
-          const GENERAL_AUTHENTICATE_ECC_APDU_HEADER = [0x00, 0x87, 0x11, 0x9A];
+              new Uint8Array(
+                  [0x7C, 4 + data.length, 0x82, 0x00, 0x81, data.length]),
+              data);
+          const algorithmId = nassh.agent.messages
+              .OidToCurveInfo[keyInfo.curveOid].pivAlgorithmId;
+          const GENERAL_AUTHENTICATE_ECC_APDU_HEADER =
+              [0x00, 0x87, algorithmId, 0x9A];
           const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
               await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
                   ...GENERAL_AUTHENTICATE_ECC_APDU_HEADER, authTemplate)));
