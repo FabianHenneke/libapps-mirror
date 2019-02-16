@@ -1412,7 +1412,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
 nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
     async function() {
   switch (this.appletSelected_) {
-    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP:
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.OPENPGP: {
       /**
        * Command APDU for the 'GENERATE ASYMMETRIC KEY PAIR' command in
        * 'reading' mode with the identifier of the authentication subkey as
@@ -1445,7 +1445,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               `SmartCardManager.fetchPublicKeyBlob: unsupported key type: ` +
               `${JSON.stringify(keyInfo)}`);
       }
-    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+    }
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV: {
       /**
        * Command APDU for the 'GET DATA' command for the 'X.509 Certificate
        * for PIV Authentication' data object.
@@ -1493,7 +1494,12 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
               new Uint8Array([0x04]), ecPublicKey.x, ecPublicKey.y);
           return nassh.agent.messages.generateKeyBlob(
               keyInfo.type, keyInfo.curveOid, keyOctets);
+        default:
+          throw new Error(
+              `SmartCardManager.fetchPublicKeyBlob: unsupported key type: ` +
+              `${JSON.stringify(keyInfo)}`);
       }
+    }
     default:
       throw new Error(
           'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
