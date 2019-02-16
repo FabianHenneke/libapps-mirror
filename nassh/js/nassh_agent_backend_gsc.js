@@ -1389,6 +1389,14 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
           const algorithmParams =
               certificate.subjectPublicKeyInfo.algorithm.algorithmParams;
           const curveOid = algorithmParams.valueBlock.toJSON().value;
+          if (!(
+              curveOid in nassh.agent.messages.OidToCurveInfo &&
+              'pivAlgorithmId' in nassh.agent.messages.OidToCurveInfo[curveOid]
+              )) {
+            throw new Error(
+                `SmartCardManager.fetchKeyInfo: unsupported curve OID for ` +
+                `PIV: ${curveOid}`);
+          }
           return {type: nassh.agent.messages.KeyTypes.ECDSA, curveOid};
         default:
           throw new Error(
