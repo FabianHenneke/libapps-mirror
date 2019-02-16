@@ -1352,6 +1352,49 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
               `SmartCardManager.fetchKeyInfo: unsupported algorithm ID: ` +
               `${type}`);
       }
+    case nassh.agent.backends.GSC.SmartCardManager.CardApplets.PIV:
+      /**
+       * Command APDU for the 'GET DATA' command for the 'X.509 Certificate
+       * for PIV Authentication' data object.
+       *
+       * Used to retrieve information on the public part of the authentication
+       * subkey.
+       * @see http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
+       */
+      const READ_AUTHENTICATION_CERTIFICATE_APDU =
+          new nassh.agent.backends.GSC.CommandAPDU(
+              0x00,
+              0xCB,
+              0x3F,
+              0xFF,
+              new Uint8Array([0x5C, 0x03, 0x5F, 0xC1, 0x05]));
+      const certificateObject = nassh.agent.backends.GSC.DataObject.fromBytes(
+          await this.transmit(READ_AUTHENTICATION_CERTIFICATE_APDU));
+      const certificateBytes =
+          nassh.agent.backends.GSC.DataObject
+              .fromBytes(certificateObject.lookup(0x53).value)
+              .lookup(0x70)
+              .value;
+      const asn1Certificate = asn1js.fromBER(certificateBytes.buffer);
+      const certificate =
+          new pkijs.Certificate({schema: asn1Certificate.result});
+      const algorithmOid = nassh.agent.messages.decodeOid(
+          asn1js.fromBER(certificate.subjectPublicKeyInfo.algorithm.valueHex));
+      switch (algorithmOid) {
+        case '1.2.840.113549.1.1.1':
+          // RSA
+          return {type: nassh.agent.messages.KeyTypes.RSA};
+        case '1.2.840.10045.2.1':
+          // ECDSA (always using the P-256 curve)
+          return {
+              type: nassh.agent.messages.KeyTypes.ECDSA,
+              curveOid: '1.2.840.10045.3.1.7',
+          };
+        default:
+          throw new Error(
+              `SmartCardManager.fetchKeyInfo: unsupported PIV algorithm OID: ` +
+              `${algorithmOid}`);
+      }
     default:
       throw new Error(
           `SmartCardManager.fetchKeyInfo: no or unsupported applet ` +
@@ -1431,14 +1474,26 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchPublicKeyBlob =
       const asn1PublicKey =
           asn1js.fromBER(certificate.subjectPublicKeyInfo.subjectPublicKey
                              .valueBlock.valueHex);
-      // TODO: Support ECC keys
-      const rsaPublicKey =
-          new pkijs.RSAPublicKey({schema: asn1PublicKey.result});
-      const exponent =
-          new Uint8Array(rsaPublicKey.publicExponent.valueBlock.valueHex);
-      const modulus = new Uint8Array(rsaPublicKey.modulus.valueBlock.valueHex);
-      return nassh.agent.messages.generateKeyBlob(
-          nassh.agent.messages.KeyBlobTypes.SSH_RSA, exponent, modulus);
+      const keyInfo = this.fetchKeyInfo();
+      switch (keyInfo.type) {
+        case nassh.agent.messages.KeyTypes.RSA:
+          const rsaPublicKey =
+              new pkijs.RSAPublicKey({schema: asn1PublicKey.result});
+          const exponent =
+              new Uint8Array(rsaPublicKey.publicExponent.valueBlock.valueHex);
+          const modulus =
+              new Uint8Array(rsaPublicKey.modulus.valueBlock.valueHex);
+          return nassh.agent.messages.generateKeyBlob(
+              keyInfo.type, exponent, modulus);
+        case nassh.agent.messages.KeyTypes.ECDSA:
+          const ecPublicKey =
+              new pkijs.ECPublicKey({schema: asn1PublicKey.result});
+          // @see http://www.secg.org/sec1-v2.pdf (2.3.3)
+          const keyOctets = lib.array.concatTyped(
+              new Uint8Array([0x04]), ecPublicKey.x, ecPublicKey.y);
+          return nassh.agent.messages.generateKeyBlob(
+              keyInfo.type, keyInfo.curveOid, keyOctets);
+      }
     default:
       throw new Error(
           'SmartCardManager.fetchPublicKeyBlob: no or unsupported applet ' +
@@ -1494,9 +1549,8 @@ nassh.agent.backends.GSC.SmartCardManager.prototype
               .fromBytes(certificateObject.lookup(0x53).value)
               .lookup(0x70)
               .value;
-      return new Uint8Array(await window.crypto.subtle.digest(
-          nassh.agent.backends.GSC.HashAlgorithms.SHA1.name,
-          certificateBytes.buffer));
+      return new Uint8Array(
+          await window.crypto.subtle.digest('SHA-1', certificateBytes.buffer));
     default:
       throw new Error(
           'SmartCardManager.fetchAuthenticationPublicKeyId: no or ' +
@@ -1740,8 +1794,9 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
        * on the smart card.
        * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
        */
+      // TODO: Support ECC (replace 0x07 with 0x11...)
       const GENERAL_AUTHENTICATE_APDU_HEADER = [0x00, 0x87, 0x07, 0x9A];
-      // TODO: Support ECC
+      // TODO: Support ECC (no padding necessary)
       const paddedData = lib.array.concatTyped(
           new Uint8Array([0x00, 0x01]),
           new Uint8Array(new Array(256 - 3 - data.length).fill(0xFF)),
@@ -1755,6 +1810,7 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.authenticate =
       const signedAuthTemplate = nassh.agent.backends.GSC.DataObject.fromBytes(
           await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
               ...GENERAL_AUTHENTICATE_APDU_HEADER, authTemplate)));
+      // TODO: Support ECC (value contains DER encoded r and s)
       return signedAuthTemplate.lookup(0x82).value;
     default:
       throw new Error(
