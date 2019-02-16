@@ -1685,7 +1685,6 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
        * @see https://g10code.com/docs/openpgp-card-2.0.pdf
        */
       const VERIFY_PIN_APDU_HEADER_OPENPGP = [0x00, 0x20, 0x00, 0x82];
-      const pinBytes = new TextEncoder().encode(pin);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...VERIFY_PIN_APDU_HEADER_OPENPGP,
@@ -1723,20 +1722,21 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.verifyPIN =
       const VERIFY_PIN_APDU_HEADER_PIV = [0x00, 0x20, 0x00, 0x80];
       // PIV Application PIN can only be numeric and between 6 and 8 digits
       // long (see PIV specification Section 2.4.3).
-      if (!pin.match(/\d{6,8}/)) {
+      if (pinBytes.length < 6 ||
+          pinBytes.length > 8 ||
+          [].some.call(pinBytes, (byte) => {byte < 0x30 && byte > 0x39})) {
         return false;
       }
       // Pad to 8 bytes by appending (at most two) 0xFF bytes.
-      const paddedPinBytes =
-          lib.array.concatTyped(
-              lib.codec.stringToCodeUnitArray(pin, Uint8Array),
-              new Uint8Array([0xFF, 0xFF]))
+      let paddedPinBytes =
+          lib.array.concatTyped(pinBytes, new Uint8Array([0xFF, 0xFF]))
           .subarray(0, 8);
       try {
         await this.transmit(new nassh.agent.backends.GSC.CommandAPDU(
             ...VERIFY_PIN_APDU_HEADER_PIV,
             paddedPinBytes,
             false /* expectResponse */));
+        paddedPinBytes.fill(0);
         return true;
       } catch (error) {
         if (error instanceof nassh.agent.backends.GSC.StatusBytes) {
