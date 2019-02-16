@@ -1385,11 +1385,11 @@ nassh.agent.backends.GSC.SmartCardManager.prototype.fetchKeyInfo =
           // RSA
           return {type: nassh.agent.messages.KeyTypes.RSA};
         case '1.2.840.10045.2.1':
-          // ECDSA (always using the P-256 curve)
-          return {
-              type: nassh.agent.messages.KeyTypes.ECDSA,
-              curveOid: '1.2.840.10045.3.1.7',
-          };
+          // ECDSA
+          const algorithmParams =
+              certificate.subjectPublicKeyInfo.algorithm.algorithmParams;
+          const curveOid = algorithmParams.valueBlock.toJSON().value;
+          return {type: nassh.agent.messages.KeyTypes.ECDSA, curveOid};
         default:
           throw new Error(
               `SmartCardManager.fetchKeyInfo: unsupported PIV algorithm OID: ` +
