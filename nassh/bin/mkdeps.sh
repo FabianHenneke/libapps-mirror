@@ -8,6 +8,7 @@ source "${LIBDOT_DIR}/bin/common.sh"
 
 cd "${BIN_DIR}/.."
 
+bundle-licenses.py ./html/licenses.html
 concat -i ./concat/nassh_deps.concat \
   -o ./js/nassh_deps.concat.js "$@"
 rollup -c

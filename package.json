@@ -12,9 +12,7 @@
   "files": [
     "README.md"
   ],
-  "devDependencies": {},
-  "dependencies": {
-    "asn1js": "~2",
+  "devDependencies": {
     "chai": "~4",
     "csso": ">=3",
     "csso-cli": ">=2",
@@ -22,11 +20,14 @@
     "firebase-tools": ">=6.3",
     "jsdom": "~13",
     "mocha": "~5",
-    "pkijs": "~2.1",
     "rollup": ">=0.60",
     "rollup-plugin-node-resolve": ">=3.3",
     "rollup-plugin-terser": ">=4",
     "terser": "~3"
+  },
+  "dependencies": {
+    "asn1js": "~2",
+    "pkijs": "~2.1"
   },
   "bugs": {
     "url": "https://crbug.com/new",
